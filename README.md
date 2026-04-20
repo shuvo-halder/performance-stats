@@ -1,112 +1,198 @@
 
-# Server Performance Stats Script
 
-**Project URL:** [https://github.com/shuvo-halder/Performance-Stats](https://github.com/shuvo-halder/Performance-Stats)
+# 🖥️ Performance Stats - Advanced Server Monitor
 
-A simple Bash script that displays real-time server performance and system statistics in a clean, readable format. Useful for quick health checks on Linux servers.
+A lightweight, production-ready Bash script to monitor Linux server performance, health, and security with alerting support.
 
-## Features
+🔗 **GitHub Repo:** [https://github.com/shuvo-halder/performance-stats](https://github.com/shuvo-halder/performance-stats)
 
-The script provides the following information:
+---
 
-* **OS Version**
+## 🚀 Features
 
-  * Displays the operating system name and version.
-* **Uptime & Load Average**
+* ✅ OS, Kernel & Uptime info
+* ✅ CPU usage + Load Average + Alerts
+* ✅ Memory usage monitoring
+* ✅ Disk usage (per mount point)
+* ✅ Network stats (connections & ports)
+* ✅ Service health check (customizable)
+* ✅ Security check (failed SSH logins)
+* ✅ Top processes (CPU & Memory)
+* ✅ Color-coded output (OK / WARN / ALERT)
+* ✅ Save report to file
+* ✅ Cron-friendly execution
 
-  * Shows how long the system has been running and current load averages.
-* **Logged-in Users**
+---
 
-  * Lists all users currently logged into the system.
-* **CPU Usage**
+## 📸 Sample Output
 
-  * Displays total CPU usage percentage.
-* **Memory Usage**
+```
+=======================================
+     ADVANCED SERVER MONITOR REPORT
+=======================================
 
-  * Shows total, used, and free memory with percentage usage.
-* **Disk Usage**
+--- CPU Info ---
+Cores: 4
+Load Avg: 0.20, 0.25, 0.30
+CPU Usage: 32%
+[OK] CPU usage normal
 
-  * Displays total, used, and free disk space across all mounted filesystems.
-* **Top Processes**
+--- Memory Info ---
+Used: 1200MB / 4096MB (29.30%)
+[OK] Memory usage normal
 
-  * Top 5 processes by:
+--- Disk Info ---
+[ALERT] Disk high usage on /: 91%
+```
 
-    * CPU usage
-    * Memory usage
-* **Failed Login Attempts**
+---
 
-  * Counts failed SSH/login attempts from system authentication logs.
+## 📦 Requirements
 
-## Requirements
+* Linux (Ubuntu / Debian / CentOS)
+* Bash (v4+)
+* Required tools:
 
-* Linux-based operating system
-* Bash shell
-* Common system utilities:
-
-  * `uptime`
-  * `top`
-  * `free`
-  * `df`
+  * `awk`
+  * `grep`
   * `ps`
-  * `who`
-  * `grep`, `awk`, `wc`
+  * `ss`
+  * `top`
+  * `bc`
 
-> The script checks both `/var/log/auth.log` (Debian/Ubuntu) and `/var/log/secure` (RHEL/CentOS) for failed login attempts.
+### Install dependencies (Ubuntu/Debian)
 
-## Usage
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/shuvo-halder/Performance-Stats.git
-   cd Performance-Stats
-   ```
-
-2. Make the script executable:
-
-   ```bash
-   chmod +x server-stats.sh
-   ```
-
-3. Run the script:
-
-   ```bash
-   ./server-stats.sh
-   ```
-
-## Example Output
-
-```
-=======================================
-        SERVER PERFORMANCE STATS
-=======================================
-
---- OS Version ---
-Ubuntu 22.04.3 LTS
-
---- Uptime & Load Average ---
- 10:32:18 up 5 days,  2:14,  1 user,  load average: 0.12, 0.08, 0.05
-
---- CPU Usage ---
-CPU Usage: 14.3%
-
---- Memory Usage ---
-Used: 2048MB / 8192MB (25.00%)
-Free: 6144MB
-
---- Disk Usage ---
-Used: 40G / 100G (40%)
-Free: 60G
+```bash
+sudo apt update
+sudo apt install procps iproute2 bc
 ```
 
-## Notes
+---
 
-* Run as a normal user for general statistics.
-* Access to authentication logs may require elevated permissions.
-* Designed for quick diagnostics rather than long-term monitoring.
+## ⚙️ Installation
 
-## License
+```bash
+git clone https://github.com/shuvo-halder/performance-stats.git
+cd performance-stats
+chmod +x server-stats.sh
+```
 
-This project is open-source and free to use, modify, and distribute.
-**URL:** [https://roadmap.sh/projects/server-stats](https://roadmap.sh/projects/server-stats)
+---
+
+## ▶️ Usage
+
+### 🔹 Run Script
+
+```bash
+./server-stats.sh
+```
+
+---
+
+### 🔹 Save Output to File
+
+```bash
+./server-stats.sh -o report.txt
+```
+
+---
+
+### 🔹 Check Specific Services
+
+```bash
+./server-stats.sh -s nginx,docker,redis
+```
+
+---
+
+### 🔹 Run with Cron (Every 5 Minutes)
+
+```bash
+*/5 * * * * /path/to/server-stats.sh >> /var/log/performance-stats.log
+```
+
+---
+
+## ⚡ Configuration
+
+Edit thresholds inside the script:
+
+```bash
+CPU_THRESHOLD=80
+MEM_THRESHOLD=85
+DISK_THRESHOLD=90
+```
+
+Default services:
+
+```bash
+SERVICES=("nginx" "docker" "mysql")
+```
+
+---
+
+## 🔐 Security Checks
+
+* Counts failed SSH login attempts
+* Displays open ports
+* Helps identify brute-force attacks
+
+---
+
+## 🧩 Options
+
+| Option | Description                            |
+| ------ | -------------------------------------- |
+| `-o`   | Save output to file                    |
+| `-s`   | Custom services (comma-separated)      |
+| `-j`   | Reserved for JSON output (coming soon) |
+
+---
+
+## 🔮 Roadmap
+
+* 🔔 Telegram / Slack alerts
+* 📊 JSON output (API / Prometheus ready)
+* 🔄 Auto-restart failed services
+* 🐳 Docker container monitoring
+* 📈 Historical performance tracking
+
+---
+
+## ⚠️ Notes
+
+* Some features require root privileges
+* Best suited for VPS / cloud servers
+* Tested on Ubuntu & Debian
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
+
+```bash
+git checkout -b feature/your-feature
+git commit -m "Add new feature"
+git push origin feature/your-feature
+```
+
+---
+
+## 📜 License
+
+MIT License
+
+---
+
+## 👨‍💻 Author
+
+**Shuvo Halder**
+System Engineer | Automation Enthusiast
+
+---
+
+## ⭐ Support
+
+If you find this useful, consider giving it a ⭐ on GitHub!
 
