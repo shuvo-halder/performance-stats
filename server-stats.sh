@@ -127,6 +127,54 @@ service_check() {
     done
 }
 
+# ============ AUTO-RESTART FAILED SERVICES ============
+AUTO_RESTART_FAILED_SERVICES=true
+RESTART_ATTEMPTS=2
+RESTART_DELAY=3
+
+restart_service() {
+    local svc="$1"
+
+    if ! systemctl list-unit-files | awk '{print $1}' | grep -qx "${svc}.service"; then
+        warn "${svc} service unit not found"
+        return 1
+    fi
+
+    alert "${svc} is down. Trying to restart..."
+
+    for ((attempt=1; attempt<=RESTART_ATTEMPTS; attempt++)); do
+        if systemctl restart "$svc"; then
+            sleep "$RESTART_DELAY"
+
+            if systemctl is-active --quiet "$svc"; then
+                ok "${svc} restarted successfully (attempt ${attempt})"
+                return 0
+            fi
+        fi
+
+        warn "${svc} restart attempt ${attempt} failed"
+        sleep "$RESTART_DELAY"
+    done
+
+    alert "${svc} could not be restarted after ${RESTART_ATTEMPTS} attempts"
+    return 1
+}
+
+auto_restart_failed_services() {
+    log "\n${BLUE}--- Auto Restart Failed Services ---${RESET}"
+
+    for svc in "${SERVICES[@]}"; do
+        if systemctl is-active --quiet "$svc"; then
+            ok "$svc is running"
+        else
+            warn "$svc is not running"
+            if [ "$AUTO_RESTART_FAILED_SERVICES" = true ]; then
+                restart_service "$svc"
+            fi
+        fi
+    done
+}
+
 # ============ SECURITY ====================
 security_check() {
     log "\n${BLUE}--- Security Check ---${RESET}"
@@ -172,6 +220,7 @@ main() {
     disk_info
     network_info
     service_check
+    auto_restart_failed_services
     security_check
     top_processes
 
