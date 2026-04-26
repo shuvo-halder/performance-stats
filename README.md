@@ -16,6 +16,7 @@ A lightweight, production-ready Bash script to monitor Linux server performance,
 * ✅ Disk usage (per mount point)
 * ✅ Network stats (connections & ports)
 * ✅ Service health check (customizable)
+* ✅ Auto-Restart Failed Services
 * ✅ Security check (failed SSH logins)
 * ✅ Top processes (CPU & Memory)
 * ✅ Color-coded output (OK / WARN / ALERT)
@@ -128,7 +129,27 @@ Default services:
 ```bash
 SERVICES=("nginx" "docker" "mysql")
 ```
+---
+## 🔄 Auto-Restart Failed Services
 
+The monitoring script can automatically detect stopped services and attempt to restart them. This helps reduce downtime and keeps critical applications running without manual intervention.
+
+### ✅ Features
+
+- Detects inactive or failed services
+- Automatically restarts stopped services
+- Multiple restart attempts
+- Delay between retries
+- Clear success / failure logs
+- Works with any `systemd` service
+
+```bash
+AUTO_RESTART_FAILED_SERVICES=true
+RESTART_ATTEMPTS=2
+RESTART_DELAY=3
+
+SERVICES=("nginx" "docker" "mysql")
+```
 ---
 
 ## 🔐 Security Checks
@@ -153,7 +174,7 @@ SERVICES=("nginx" "docker" "mysql")
 
 * 🔔 Telegram / Slack alerts
 * 📊 JSON output (API / Prometheus ready)
-* 🔄 Auto-restart failed services
+* 🔄 ~~Auto-restart failed services~~
 * 🐳 Docker container monitoring
 * 📈 Historical performance tracking
 
