@@ -6,19 +6,22 @@ from typing import Optional
 
 from app.database import get_session, Snapshot
 from app.collectors import collect_all_metrics
-from app.auth import verify_api_key
+from app.auth import get_current_user
 from app.config import settings
 
-router = APIRouter(prefix="/api", dependencies=[Depends(verify_api_key)])
+router = APIRouter(prefix="/api", tags=["Stats"])
 
 
 @router.get("/stats")
-async def get_current_stats(session: AsyncSession = Depends(get_session)):
+async def get_current_stats(
+    session: AsyncSession = Depends(get_session),
+    current_user = Depends(get_current_user),
+):
     """Collect and return the latest system stats snapshot."""
-    metrics = await collect_all_metrics()
+    metrics, auto_restart_results = await collect_all_metrics()
 
-    # Save to database
-    snapshot = Snapshot(**metrics)
+    # Save to database (only columns that exist in Snapshot model)
+    snapshot = Snapshot(**metrics, user_id=current_user.id)
     session.add(snapshot)
     await session.commit()
 
@@ -49,13 +52,17 @@ async def get_current_stats(session: AsyncSession = Depends(get_session)):
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "hostname": metrics.get("hostname"),
+        "user": current_user.username,
         "alerts": alerts,
         **metrics,
     }
 
 
 @router.get("/stats/latest")
-async def get_latest_saved_stats(session: AsyncSession = Depends(get_session)):
+async def get_latest_saved_stats(
+    session: AsyncSession = Depends(get_session),
+    current_user = Depends(get_current_user),
+):
     """Get the most recently saved snapshot from the database."""
     result = await session.execute(
         select(Snapshot).order_by(desc(Snapshot.timestamp)).limit(1)
@@ -70,6 +77,7 @@ async def get_latest_saved_stats(session: AsyncSession = Depends(get_session)):
 async def get_stats_history(
     period: str = Query("1h", description="Time period: 1h, 6h, 24h, 7d"),
     session: AsyncSession = Depends(get_session),
+    current_user = Depends(get_current_user),
 ):
     """Get historical stats snapshots."""
     now = datetime.now(timezone.utc)
@@ -99,7 +107,7 @@ async def get_stats_history(
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint (public, no auth required)."""
     return {
         "status": "healthy",
         "version": "2.0.0",
@@ -108,8 +116,8 @@ async def health_check():
 
 
 @router.get("/config")
-async def get_config():
-    """View current configuration (without secrets)."""
+async def get_config(current_user = Depends(get_current_user)):
+    """View current configuration (requires auth)."""
     return {
         "cpu_threshold": settings.cpu_threshold,
         "mem_threshold": settings.mem_threshold,

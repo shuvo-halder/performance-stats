@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, Float, String, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, Float, String, DateTime, JSON, Boolean
 from datetime import datetime, timezone
 import os
 
@@ -17,10 +17,25 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(255), nullable=False)
+    api_key = Column(String(255), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    is_approved = Column(Boolean, default=False)  # New users start unapproved
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Snapshot(Base):
     __tablename__ = "snapshots"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     # CPU
@@ -36,7 +51,7 @@ class Snapshot(Base):
     mem_free_mb = Column(Float)
     mem_usage_percent = Column(Float)
 
-    # Disk (JSON array of mount points)
+    # Disk
     disk_data = Column(JSON)
 
     # Network
@@ -46,10 +61,10 @@ class Snapshot(Base):
     # Security
     failed_logins = Column(Integer, default=0)
 
-    # Services (JSON)
+    # Services
     services_data = Column(JSON)
 
-    # Top processes (JSON)
+    # Top processes
     top_cpu_processes = Column(JSON)
     top_mem_processes = Column(JSON)
 
@@ -58,6 +73,18 @@ class Snapshot(Base):
     os_name = Column(String(255))
     kernel = Column(String(255))
     uptime = Column(String(255))
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    key = Column(String(255), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime, nullable=True)
 
 
 async def init_db():

@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getStats, getHistory } from './api';
+import Login from './components/Login';
+import AdminPanel from './components/AdminPanel';
+import { getStats, getHistory, getCurrentUser, isAuthenticated, logout } from './api';
 import './styles/dashboard.css';
 
-function App() {
+function Dashboard({ user, onLogout }) {
+  const [showAdmin, setShowAdmin] = useState(false);
   const [data, setData] = useState(null);
   const [history, setHistory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,7 +70,7 @@ function App() {
           <div className="error-icon">⚠️</div>
           <h2>Connection Error</h2>
           <p>{error}</p>
-          <p className="error-hint">Make sure the API server is running on port 8000 with the correct API key.</p>
+          <p className="error-hint">Make sure the API server is running and accessible.</p>
           <button onClick={fetchData} className="retry-btn">Retry</button>
         </div>
       </div>
@@ -86,14 +89,19 @@ function App() {
           <span className="header-hostname">{data?.hostname || 'unknown'}</span>
         </div>
         <div className="header-right">
+          <span className="header-user">👤 {user?.username || 'user'}</span>
           <span className="header-time">{data?.timestamp ? new Date(data.timestamp).toLocaleString() : ''}</span>
           <span className={`status-badge ${alerts.length === 0 ? 'healthy' : 'warning'}`}>
             {alerts.length === 0 ? '● Healthy' : `● ${alerts.length} Alert(s)`}
           </span>
           <label className="auto-refresh-toggle">
             <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
-            <span className="toggle-label">Auto-refresh (10s)</span>
+            <span className="toggle-label">Auto</span>
           </label>
+          {user?.is_admin && (
+            <button onClick={() => setShowAdmin(true)} className="admin-btn" title="User Management">👥</button>
+          )}
+          <button onClick={onLogout} className="logout-btn" title="Sign out">🚪</button>
         </div>
       </header>
 
@@ -366,9 +374,11 @@ function App() {
         </div>
       </div>
 
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+
       <footer className="footer">
         <span>Server Stats Monitor v2.0.0</span>
-        <span>Data refreshes every 10 seconds</span>
+        <span>Signed in as {user?.username || 'user'} · Auto-refresh {autoRefresh ? 'ON' : 'OFF'}</span>
       </footer>
     </div>
   );
@@ -396,9 +406,35 @@ function renderMiniChart(data, color) {
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="inline-chart">
       <path d={pathD} fill="none" stroke={color} strokeWidth="2" />
-      <text x={w - 50} y={h - 5} fontSize="10" fill="#94a3b8">{data[data.length - 1].value.toFixed(1)}%</text>
+      {data.length > 0 && (
+        <text x={w - 50} y={h - 5} fontSize="10" fill="#94a3b8">{data[data.length - 1].value.toFixed(1)}%</text>
+      )}
     </svg>
   );
+}
+
+// ── Main App with Auth ─────────────────────────────────────────────
+
+function App() {
+  const [authenticated, setAuthenticated] = useState(isAuthenticated());
+  const [user, setUser] = useState(getCurrentUser());
+
+  const handleLogin = useCallback(() => {
+    setAuthenticated(true);
+    setUser(getCurrentUser());
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setAuthenticated(false);
+    setUser(null);
+  }, []);
+
+  if (!authenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  return <Dashboard user={user} onLogout={handleLogout} />;
 }
 
 export default App;

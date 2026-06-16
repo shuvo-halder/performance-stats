@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
@@ -7,6 +7,8 @@ import logging
 from app.database import init_db, async_session, Snapshot
 from app.collectors import collect_all_metrics
 from app.routers.stats import router as stats_router
+from app.routers.auth import router as auth_router
+from app.auth import get_current_user
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +22,7 @@ async def periodic_collection():
     """Periodically collect and store metrics in the background."""
     while True:
         try:
-            metrics = await collect_all_metrics()
+            metrics, _ = await collect_all_metrics()
             async with async_session() as session:
                 snapshot = Snapshot(**metrics)
                 session.add(snapshot)
@@ -60,14 +62,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Server Stats Monitor API",
     version="2.0.0",
-    description="Production-grade server performance monitoring API. Provides real-time and historical system metrics.",
+    description="Production-grade server performance monitoring API. Provides real-time and historical system metrics with user authentication.",
     lifespan=lifespan,
 )
 
-# CORS - allow frontend to connect
+# CORS - allow configured frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,6 +77,7 @@ app.add_middleware(
 
 # Routes
 app.include_router(stats_router)
+app.include_router(auth_router)
 
 
 @app.get("/")
@@ -85,11 +88,18 @@ async def root():
         "version": "2.0.0",
         "docs": "/docs",
         "openapi": "/openapi.json",
+        "authentication": {
+            "register": "POST /api/auth/register",
+            "login": "POST /api/auth/login",
+            "profile": "GET /api/auth/me",
+            "create_api_key": "POST /api/auth/api-keys",
+            "seed_admin": "POST /api/auth/admin/seed",
+        },
         "endpoints": {
-            "GET /api/stats": "Collect and return current system stats",
+            "GET /api/stats": "Collect and return current system stats (requires auth)",
             "GET /api/stats/latest": "Get latest saved snapshot",
             "GET /api/stats/history": "Get historical stats (query: ?period=1h|6h|24h|7d)",
-            "GET /api/health": "Health check",
+            "GET /api/health": "Health check (public)",
             "GET /api/config": "View current configuration",
         },
     }

@@ -22,7 +22,10 @@ async def collect_all_metrics():
     processes = await collect_top_processes()
     security = await collect_security_info()
 
-    return {
+    # Build the metrics dict - exclude keys that aren't columns in Snapshot
+    auto_restart_results = services.pop("auto_restart_results", [])
+
+    metrics = {
         **system,
         **cpu,
         **memory,
@@ -32,3 +35,5 @@ async def collect_all_metrics():
         **processes,
         **security,
     }
+
+    return metrics, auto_restart_results

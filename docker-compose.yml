@@ -6,7 +6,7 @@ services:
     container_name: server-stats-api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
       - ./backend/data:/app/data
       - /proc:/proc:ro
@@ -14,8 +14,12 @@ services:
       - /var/log:/var/log:ro
       - /etc/os-release:/etc/os-release:ro
     environment:
+      - HOST=0.0.0.0
+      - PORT=8000
       - DATABASE_URL=sqlite+aiosqlite:///./data/server-stats.db
-      - API_KEY=${API_KEY:-sk-prod-server-stats-monitor-key-2026}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-to-a-secure-random-key-in-production}
+      - MASTER_API_KEY=${MASTER_API_KEY:-sk-prod-server-stats-master-key-2026}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:8080}
       - CPU_THRESHOLD=${CPU_THRESHOLD:-80}
       - MEM_THRESHOLD=${MEM_THRESHOLD:-85}
       - DISK_THRESHOLD=${DISK_THRESHOLD:-90}
@@ -23,7 +27,7 @@ services:
       - COLLECTION_INTERVAL=${COLLECTION_INTERVAL:-60}
     privileged: true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health?api_key=${API_KEY:-sk-prod-server-stats-monitor-key-2026}"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -33,9 +37,9 @@ services:
     container_name: server-stats-dashboard
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${DASHBOARD_PORT:-8080}:80"
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_API_KEY=${API_KEY:-sk-prod-server-stats-monitor-key-2026}
+      - REACT_APP_API_URL=http://localhost:${API_PORT:-8000}
+      - REACT_APP_API_KEY=${MASTER_API_KEY:-sk-prod-server-stats-master-key-2026}
