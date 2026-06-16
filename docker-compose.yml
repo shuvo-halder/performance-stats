@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: server-stats-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+      - /var/log:/var/log:ro
+      - /etc/os-release:/etc/os-release:ro
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./data/server-stats.db
+      - API_KEY=${API_KEY:-sk-prod-server-stats-monitor-key-2026}
+      - CPU_THRESHOLD=${CPU_THRESHOLD:-80}
+      - MEM_THRESHOLD=${MEM_THRESHOLD:-85}
+      - DISK_THRESHOLD=${DISK_THRESHOLD:-90}
+      - SERVICES=${SERVICES:-nginx,docker,mysql}
+      - COLLECTION_INTERVAL=${COLLECTION_INTERVAL:-60}
+    privileged: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health?api_key=${API_KEY:-sk-prod-server-stats-monitor-key-2026}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: server-stats-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_KEY=${API_KEY:-sk-prod-server-stats-monitor-key-2026}
