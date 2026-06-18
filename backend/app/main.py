@@ -12,7 +12,7 @@ from app.routers.auth import router as auth_router
 from app.routers.traffic import router as traffic_router
 from app.ip_reputation.router import router as ip_reputation_router
 from app.ip_reputation.integration import ip_integrator
-from app.metrics.router import router as metrics_router
+from app.metrics.router import router as metrics_router, start_background_collection, stop_background_collection
 from app.auth import get_current_user
 from app.config import settings
 
@@ -60,9 +60,14 @@ async def lifespan(app: FastAPI):
     await ip_integrator.start()
     logger.info("IP reputation enrichment started")
 
+    # Start background metrics collection for Grafana dashboard
+    await start_background_collection()
+    logger.info("Background metrics collection started")
+
     yield
 
     # Shutdown
+    await stop_background_collection()
     await ip_integrator.stop()
     if background_task:
         background_task.cancel()

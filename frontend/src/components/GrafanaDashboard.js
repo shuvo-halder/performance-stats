@@ -31,7 +31,7 @@ const percentColor = (p) => {
 };
 
 // ── SVG Sparkline ─────────────────────────────────────────────────
-function Sparkline({ data, color = '#3b82f6', height = 30, smooth = true }) {
+function Sparkline({ data, color = '#3b82f6', height = 30 }) {
   if (!data || data.length < 2) return <div className="sparkline-empty" style={{ height }} />;
   const w = 120, h = height, pad = 2;
   const vals = data.map(d => d.v !== undefined ? d.v : d);
@@ -70,7 +70,7 @@ function MiniBar({ value, max = 100, color, label, suffix = '%', showValue = tru
 }
 
 // ── Time-Series Area Chart ────────────────────────────────────────
-function AreaChart({ data, color = '#3b82f6', height = 80, label = '', smooth = true }) {
+function AreaChart({ data, color = '#3b82f6', height = 80, label = '' }) {
   if (!data || data.length < 2) return <div className="chart-placeholder" style={{ height }}>No data</div>;
   const w = 400;
   const vals = data.map(d => d.v !== undefined ? d.v : d);
@@ -86,7 +86,6 @@ function AreaChart({ data, color = '#3b82f6', height = 80, label = '', smooth = 
   });
   const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ');
   const areaD = lineD + ` L${pad.l + cw},${pad.t + ch} L${pad.l},${pad.t + ch} Z`;
-  const lastVal = vals[vals.length - 1];
   return (
     <svg viewBox={`0 0 ${w} ${height}`} className="grafana-chart">
       <defs>
@@ -107,7 +106,7 @@ function AreaChart({ data, color = '#3b82f6', height = 80, label = '', smooth = 
 // ── Pie Chart ─────────────────────────────────────────────────────
 function MiniPie({ segments, size = 100 }) {
   const total = segments.reduce((s, seg) => s + seg.value, 0);
-  if (total === 0) return <div className="chart-placeholder" style={{ height: size }}>No data</div>;
+  if (total === 0) return null;
   const cx = size / 2, cy = size / 2, r = size / 2 - 5;
   let cumPct = 0;
   const paths = segments.filter(s => s.value > 0).map(s => {
@@ -134,25 +133,20 @@ function MiniPie({ segments, size = 100 }) {
 export default function GrafanaDashboard() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
-  const [mode, setMode] = useState('ema'); // 'raw', 'ema', 'rolling'
+  const [mode, setMode] = useState('ema');
   const [period, setPeriod] = useState('1h');
   const [wsConnected, setWsConnected] = useState(false);
   const [connStates, setConnStates] = useState({});
-  const [diskData, setDiskData] = useState(null);
-  const [rpsHistory, setRpsHistory] = useState([]);
   const [cpuHistory, setCpuHistory] = useState([]);
   const [memHistory, setMemHistory] = useState([]);
   const wsRef = useRef(null);
 
-  // Fetch initial data
   const fetchData = useCallback(async () => {
     try {
       const m = await getMetricsCurrent();
       setData(m);
       if (m.network_deep?.connection_states) setConnStates(m.network_deep.connection_states);
-      if (m.disk_iops) setDiskData(m.disk_iops);
 
-      // Build history arrays from smoothed data
       const s = m.smoothed || {};
       const getVal = (key) => {
         if (mode === 'raw') return m.raw?.[key];
@@ -192,6 +186,7 @@ export default function GrafanaDashboard() {
             const msg = JSON.parse(e.data);
             if (msg.type === 'metrics_snapshot' && msg.data) {
               setData(msg.data);
+              if (msg.data.network_deep?.connection_states) setConnStates(msg.data.network_deep.connection_states);
               if (msg.data.smoothed) {
                 const s = msg.data.smoothed;
                 const getVal = (key) => {
@@ -204,8 +199,6 @@ export default function GrafanaDashboard() {
                 setCpuHistory(prev => [...prev.slice(-119), cpu]);
                 setMemHistory(prev => [...prev.slice(-119), mem]);
               }
-              if (msg.data.network_deep?.connection_states) setConnStates(msg.data.network_deep.connection_states);
-              if (msg.data.disk_iops) setDiskData(msg.data.disk_iops);
             }
           } catch (e) { /* ignore */ }
         };
@@ -230,6 +223,7 @@ export default function GrafanaDashboard() {
 
   const cpuPct = getVal('cpu_usage_percent');
   const memPct = getVal('mem_usage_percent');
+  const swapPct = raw.swap_percent || 0;
   const load1 = getVal('cpu_load_1min');
   const load5 = getVal('cpu_load_5min');
   const load15 = getVal('cpu_load_15min');
@@ -242,9 +236,7 @@ export default function GrafanaDashboard() {
       {/* Header */}
       <div className="grafana-header">
         <div className="grafana-header-left">
-          <h1 className="grafana-title">
-            <span className="grafana-logo">◆</span> Server Monitor
-          </h1>
+          <h1 className="grafana-title"><span className="grafana-logo">◆</span> Server Monitor</h1>
           <span className="grafana-hostname">{raw.hostname || 'localhost'}</span>
         </div>
         <div className="grafana-header-right">
@@ -262,15 +254,10 @@ export default function GrafanaDashboard() {
 
       {/* ── Section 1: Quick Stats ──────────────────────────────────── */}
       <div className="grafana-quick-stats">
-        <div className="grafana-stat-card cpu-pressure">
-          <div className="stat-label">CPU Pressure</div>
-          <div className="stat-value" style={{ color: percentColor(cpuPct) }}>{formatNumber(cpuPct)}<span className="stat-unit">%</span></div>
-          <Sparkline data={cpuHistory} color={percentColor(cpuPct)} height={28} />
-        </div>
         <div className="grafana-stat-card">
-          <div className="stat-label">CPU Busy</div>
+          <div className="stat-label">CPU</div>
           <div className="stat-value" style={{ color: percentColor(cpuPct) }}>{formatNumber(cpuPct)}%</div>
-          <div className="stat-sub">Load: {load1.toFixed(2)}</div>
+          <Sparkline data={cpuHistory} color={percentColor(cpuPct)} height={28} />
         </div>
         <div className="grafana-stat-card">
           <div className="stat-label">System Load</div>
@@ -278,9 +265,14 @@ export default function GrafanaDashboard() {
           <div className="stat-sub">5m: {load5.toFixed(2)} · 15m: {load15.toFixed(2)}</div>
         </div>
         <div className="grafana-stat-card">
-          <div className="stat-label">RAM Used</div>
+          <div className="stat-label">RAM</div>
           <div className="stat-value" style={{ color: percentColor(memPct) }}>{formatNumber(memPct)}%</div>
           <div className="stat-sub">{formatBytes((raw.mem_used_mb || 0) * 1e6)} / {formatBytes((raw.mem_total_mb || 1) * 1e6)}</div>
+        </div>
+        <div className="grafana-stat-card">
+          <div className="stat-label">Swap</div>
+          <div className="stat-value" style={{ color: percentColor(swapPct) }}>{swapPct.toFixed(0)}%</div>
+          <div className="stat-sub">{formatBytes((raw.swap_used_mb || 0) * 1e6)} / {formatBytes((raw.swap_total_mb || 0) * 1e6)}</div>
         </div>
         <div className="grafana-stat-card">
           <div className="stat-label">CPU Cores</div>
@@ -298,19 +290,19 @@ export default function GrafanaDashboard() {
         <div className="grafana-panel">
           <div className="panel-header">
             <span className="panel-icon">🔲</span>
-            <span className="panel-title">CPU Usage</span>
+            <span className="panel-title">CPU</span>
             <span className="panel-value">{cpuPct.toFixed(1)}%</span>
           </div>
           <div className="panel-body">
             <MiniBar value={cpuPct} color={percentColor(cpuPct)} label="Busy" />
             <div className="panel-details">
-              <span>User · System · IOWait</span>
+              <span>Load: {load1.toFixed(2)} / {load5.toFixed(2)} / {load15.toFixed(2)}</span>
             </div>
             {cpuHistory.length > 1 && <AreaChart data={cpuHistory} color={percentColor(cpuPct)} height={70} label={mode.toUpperCase()} />}
           </div>
         </div>
 
-        {/* Memory Graph */}
+        {/* Memory Graph — Now includes Swap */}
         <div className="grafana-panel">
           <div className="panel-header">
             <span className="panel-icon">🧠</span>
@@ -318,11 +310,11 @@ export default function GrafanaDashboard() {
             <span className="panel-value">{memPct.toFixed(1)}%</span>
           </div>
           <div className="panel-body">
-            <MiniBar value={memPct} color={percentColor(memPct)} label="Used" />
+            <MiniBar value={memPct} color={percentColor(memPct)} label="RAM" />
+            <MiniBar value={swapPct} color={percentColor(swapPct)} label="Swap" />
             <div className="panel-details">
-              <span>Used: {formatBytes((raw.mem_used_mb || 0) * 1e6)}</span>
-              <span>Free: {formatBytes((raw.mem_free_mb || 0) * 1e6)}</span>
-              <span>Total: {formatBytes((raw.mem_total_mb || 0) * 1e6)}</span>
+              <span>RAM: {formatBytes((raw.mem_used_mb || 0) * 1e6)} / {formatBytes((raw.mem_total_mb || 0) * 1e6)}</span>
+              <span>Swap: {formatBytes((raw.swap_used_mb || 0) * 1e6)} / {formatBytes((raw.swap_total_mb || 0) * 1e6)}</span>
             </div>
             {memHistory.length > 1 && <AreaChart data={memHistory} color="#22c55e" height={70} label={mode.toUpperCase()} />}
           </div>
@@ -348,7 +340,7 @@ export default function GrafanaDashboard() {
         <div className="grafana-panel">
           <div className="panel-header">
             <span className="panel-icon">💾</span>
-            <span className="panel-title">Disk Usage</span>
+            <span className="panel-title">Disk</span>
           </div>
           <div className="panel-body">
             {raw.disk_data?.map((d, i) => (
@@ -381,7 +373,11 @@ export default function GrafanaDashboard() {
                   ))}
                 </div>
               </div>
-            ) : <div className="chart-placeholder">No connection data</div>}
+            ) : (
+              <div className="chart-placeholder">
+                {net.total_connections > 0 ? 'No state data' : 'No active connections'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -405,7 +401,11 @@ export default function GrafanaDashboard() {
                   </div>
                 ))}
               </div>
-            ) : <div className="chart-placeholder">No IP data</div>}
+            ) : (
+              <div className="chart-placeholder">
+                {net.total_connections > 0 ? 'All local connections' : 'No active connections'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -429,7 +429,11 @@ export default function GrafanaDashboard() {
                   </div>
                 ))}
               </div>
-            ) : <div className="chart-placeholder">No port data</div>}
+            ) : (
+              <div className="chart-placeholder">
+                {net.total_connections > 0 ? 'All ephemeral' : 'No active connections'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -515,7 +519,6 @@ export default function GrafanaDashboard() {
         </div>
       )}
 
-      {/* ── Loading State ────────────────────────────────────────────── */}
       {!data && (
         <div className="grafana-loading">
           <div className="grafana-spinner" />

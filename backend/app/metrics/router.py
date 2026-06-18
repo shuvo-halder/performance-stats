@@ -12,6 +12,7 @@ Endpoints:
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -29,59 +30,121 @@ logger = logging.getLogger("server-stats.metrics.router")
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
-
-async def _collect_and_smooth() -> dict:
-    """Collect all metrics and apply smoothing."""
-    metrics, auto_restart = await collect_all_metrics()
-
-    # Extract key metrics for smoothing
-    smoothable = {
-        "cpu_usage_percent": metrics.get("cpu_usage_percent", 0),
-        "mem_usage_percent": metrics.get("mem_usage_percent", 0),
-        "cpu_load_1min": metrics.get("cpu_load_1min", 0),
-        "cpu_load_5min": metrics.get("cpu_load_5min", 0),
-        "cpu_load_15min": metrics.get("cpu_load_15min", 0),
-    }
-
-    smoothed = await smoother.get_all_smoothed(smoothable)
-
-    return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "raw": metrics,
-        "smoothed": smoothed,
-        "auto_restart_results": auto_restart,
-    }
+# ── Live Metrics State (continuously collected by background task) ────
+_live_metrics: dict = {
+    "timestamp": None,
+    "raw": {},
+    "smoothed": {},
+    "network_deep": {"total_connections": 0, "connection_states": {}, "top_ips": [], "port_counts": [], "connection_rate": 0},
+    "disk_iops": {"read_iops": 0, "write_iops": 0, "read_mb_s": 0, "write_mb_s": 0, "devices": []},
+}
+_live_lock = asyncio.Lock()
+_background_task = None
 
 
-async def _collect_deep_network() -> dict:
-    """Collect deep network metrics."""
-    await deep_network.collect()
-    return await deep_network.get_snapshot()
+async def _background_collection_loop():
+    """Continuously collect metrics every 3 seconds in background."""
+    while True:
+        try:
+            await _update_live_metrics()
+        except Exception as e:
+            logger.error(f"Background collection error: {e}")
+        await asyncio.sleep(3)
 
 
-async def _collect_disk_iops() -> dict:
-    """Collect disk IOPS metrics."""
-    await disk_iops.collect()
-    return await disk_iops.get_snapshot()
+async def _update_live_metrics():
+    """Update live metrics state with fresh data from all collectors.
+    
+    Each collector is wrapped in its own try/except so a failure in one
+    doesn't prevent others from updating. Default/empty values are used
+    on failure.
+    """
+    # 1. System metrics
+    try:
+        metrics, auto_restart = await collect_all_metrics()
+    except Exception as e:
+        logger.error(f"System metrics error: {e}")
+        metrics = {}
+        auto_restart = []
+
+    # 2. Smoothing
+    smoothed = {}
+    try:
+        smoothable = {
+            "cpu_usage_percent": metrics.get("cpu_usage_percent", 0),
+            "mem_usage_percent": metrics.get("mem_usage_percent", 0),
+            "cpu_load_1min": metrics.get("cpu_load_1min", 0),
+            "cpu_load_5min": metrics.get("cpu_load_5min", 0),
+            "cpu_load_15min": metrics.get("cpu_load_15min", 0),
+        }
+        smoothed = await smoother.get_all_smoothed(smoothable)
+    except Exception as e:
+        logger.error(f"Smoothing error: {e}")
+
+    # 3. Deep network (collects via ss or psutil, fails gracefully)
+    net = {"total_connections": 0, "connection_states": {}, "top_ips": [], "port_counts": [], "connection_rate": 0}
+    try:
+        await deep_network.collect()
+        net = await deep_network.get_snapshot()
+    except Exception as e:
+        logger.error(f"Network error: {e}")
+
+    # 4. Disk IOPS (collects via /proc/diskstats or psutil, fails gracefully)
+    dsk = {"read_iops": 0, "write_iops": 0, "read_mb_s": 0, "write_mb_s": 0, "devices": []}
+    try:
+        await disk_iops.collect()
+        dsk = await disk_iops.get_snapshot()
+    except Exception as e:
+        logger.error(f"Disk IOPS error: {e}")
+
+    async with _live_lock:
+        _live_metrics["timestamp"] = datetime.now(timezone.utc).isoformat()
+        _live_metrics["raw"] = metrics
+        _live_metrics["smoothed"] = smoothed
+        _live_metrics["network_deep"] = net
+        _live_metrics["disk_iops"] = dsk
+        _live_metrics["auto_restart_results"] = auto_restart
+
+
+async def start_background_collection():
+    """Start the background collection loop."""
+    global _background_task
+    if _background_task is None:
+        # Do an immediate first collection so data is available right away
+        await _update_live_metrics()
+        _background_task = asyncio.create_task(_background_collection_loop())
+        logger.info("Background metrics collection started")
+
+
+async def stop_background_collection():
+    """Stop the background collection loop."""
+    global _background_task
+    if _background_task:
+        _background_task.cancel()
+        try:
+            await _background_task
+        except asyncio.CancelledError:
+            pass
+        _background_task = None
+        logger.info("Background metrics collection stopped")
+
+
+# ── REST Endpoints ────────────────────────────────────────────────────
 
 
 @router.get("/current")
 async def get_current_metrics():
-    """Get current system metrics with raw + smoothed values."""
-    try:
-        data = await _collect_and_smooth()
-
-        # Add deep network and disk IOPS
-        net = await _collect_deep_network()
-        disk = await _collect_disk_iops()
-
-        data["network_deep"] = net
-        data["disk_iops"] = disk
-
-        return data
-    except Exception as e:
-        logger.error(f"Error collecting metrics: {e}")
-        return {"error": str(e)}
+    """
+    Get current system metrics with raw + smoothed values.
+    
+    Returns instantly from the continuously-updated live state.
+    The background task collects fresh data every 3 seconds from:
+      - psutil (CPU, memory, disk, network)
+      - ss -tun or psutil (deep network insight)
+      - /proc/diskstats or psutil (disk IOPS)
+    """
+    async with _live_lock:
+        return dict(_live_metrics)
 
 
 @router.get("/history")
@@ -126,10 +189,10 @@ async def get_metrics_history(
 
 @router.get("/network/deep")
 async def get_network_deep():
-    """Get deep network insight data."""
+    """Get deep network insight data (collects fresh on demand)."""
     try:
-        data = await _collect_deep_network()
-        return data
+        await deep_network.collect()
+        return await deep_network.get_snapshot()
     except Exception as e:
         logger.error(f"Error collecting deep network: {e}")
         return {"error": str(e)}
@@ -137,10 +200,10 @@ async def get_network_deep():
 
 @router.get("/disk/iops")
 async def get_disk_iops():
-    """Get disk IOPS metrics."""
+    """Get disk IOPS metrics (collects fresh on demand)."""
     try:
-        data = await _collect_disk_iops()
-        return data
+        await disk_iops.collect()
+        return await disk_iops.get_snapshot()
     except Exception as e:
         logger.error(f"Error collecting disk IOPS: {e}")
         return {"error": str(e)}
@@ -150,7 +213,7 @@ async def get_disk_iops():
 
 @router.websocket("/ws/metrics")
 async def websocket_metrics(websocket: WebSocket):
-    """WebSocket pushing real-time metrics every 2 seconds."""
+    """WebSocket pushing live metrics every 2 seconds from the curated state."""
     await websocket.accept()
     logger.info("Metrics WebSocket connected")
 
@@ -168,25 +231,15 @@ async def websocket_metrics(websocket: WebSocket):
             except WebSocketDisconnect:
                 break
 
-            # Collect and push all metrics
-            try:
-                data = await _collect_and_smooth()
-                net = await _collect_deep_network()
-                disk = await _collect_disk_iops()
-                data["network_deep"] = net
-                data["disk_iops"] = disk
+            # Push current live state
+            async with _live_lock:
+                payload = dict(_live_metrics)
 
-                await websocket.send_text(json.dumps({
-                    "type": "metrics_snapshot",
-                    "data": data,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }))
-            except Exception as e:
-                logger.error(f"Metrics WebSocket collect error: {e}")
-                await websocket.send_text(json.dumps({
-                    "type": "error",
-                    "message": str(e),
-                }))
+            await websocket.send_text(json.dumps({
+                "type": "metrics_snapshot",
+                "data": payload,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }))
 
     except WebSocketDisconnect:
         logger.info("Metrics WebSocket disconnected")

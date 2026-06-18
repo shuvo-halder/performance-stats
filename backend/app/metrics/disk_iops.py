@@ -22,12 +22,16 @@ logger = logging.getLogger("server-stats.metrics.disk")
 
 class DiskIOPSCollector:
     """
-    Collects disk IOPS and throughput metrics from /proc/diskstats.
+    Collects disk IOPS and throughput metrics.
+    Linux: parses /proc/diskstats
+    Windows/macOS: uses psutil.disk_io_counters()
     Runs as a background task every 2 seconds.
     """
 
     def __init__(self):
+        import platform
         self._lock = asyncio.Lock()
+        self._is_linux = platform.system() == "Linux"
         # Previous raw values for delta calculation
         self._prev_stats: Dict[str, dict] = {}
         self._last_sample_time = 0.0
@@ -50,9 +54,12 @@ class DiskIOPSCollector:
         self._total_write_mb = 0.0
 
     async def collect(self):
-        """Read /proc/diskstats and compute IOPS/throughput."""
+        """Read disk stats and compute IOPS/throughput."""
         try:
-            stats = self._parse_diskstats()
+            if self._is_linux:
+                stats = self._parse_diskstats()
+            else:
+                stats = self._get_psutil_disk_stats()
             if not stats:
                 return
 
@@ -187,6 +194,25 @@ class DiskIOPSCollector:
                 "write_sectors": int(parts[9]),
             }
 
+        return stats
+
+    def _get_psutil_disk_stats(self) -> Dict[str, dict]:
+        """Get disk stats on non-Linux platforms using psutil."""
+        import psutil
+        try:
+            counter = psutil.disk_io_counters(perdisk=True)
+        except Exception as e:
+            logger.error(f"psutil.disk_io_counters() failed: {e}")
+            return {}
+
+        stats = {}
+        for device, data in counter.items():
+            stats[device] = {
+                "reads": data.read_count,
+                "read_sectors": data.read_bytes // 512,  # Convert bytes to sectors
+                "writes": data.write_count,
+                "write_sectors": data.write_bytes // 512,
+            }
         return stats
 
     async def get_snapshot(self) -> dict:
