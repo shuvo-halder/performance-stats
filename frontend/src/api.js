@@ -173,3 +173,28 @@ export function rejectUser(userId) {
 export function makeAdmin(userId) {
   return request(`/api/auth/admin/users/${userId}/make-admin`, { method: 'POST' });
 }
+
+// ── IP Reputation API ───────────────────────────────────────────────
+
+export function getIPReputation(ip) {
+  return request(`/ip/${ip}`);
+}
+
+export function forceCheckIP(ip) {
+  return request(`/ip/check/${ip}`);
+}
+
+export function getTopMaliciousIPs(limit = 20) {
+  return request(`/ip/top-malicious?limit=${limit}`);
+}
+
+export function getIPReputationStats() {
+  return request('/ip/stats');
+}
+
+export function batchCheckIPs(ips) {
+  return request('/ip/batch-check', {
+    method: 'POST',
+    body: JSON.stringify({ ips }),
+  });
+}

@@ -10,6 +10,8 @@ from app.collectors.traffic import start_traffic_monitoring
 from app.routers.stats import router as stats_router
 from app.routers.auth import router as auth_router
 from app.routers.traffic import router as traffic_router
+from app.ip_reputation.router import router as ip_reputation_router
+from app.ip_reputation.integration import ip_integrator
 from app.auth import get_current_user
 from app.config import settings
 
@@ -53,9 +55,14 @@ async def lifespan(app: FastAPI):
     # Start traffic monitoring
     traffic_task = asyncio.create_task(start_traffic_monitoring())
 
+    # Start IP reputation enrichment
+    await ip_integrator.start()
+    logger.info("IP reputation enrichment started")
+
     yield
 
     # Shutdown
+    await ip_integrator.stop()
     if background_task:
         background_task.cancel()
         try:
@@ -91,6 +98,7 @@ app.add_middleware(
 app.include_router(stats_router)
 app.include_router(auth_router)
 app.include_router(traffic_router)
+app.include_router(ip_reputation_router)
 
 
 @app.get("/")

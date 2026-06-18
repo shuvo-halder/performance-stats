@@ -70,6 +70,34 @@ class Settings(BaseSettings):
     traffic_5xx_threshold: int = 50         # Alert if 5xx/min > this
     traffic_single_ip_threshold: int = 200  # Alert if single IP hits/min > this
 
+    # ── IP Reputation / Threat Intelligence ──────────────────────────────
+    # Enable IP reputation checking
+    ip_reputation_enabled: bool = True
+
+    # AbuseIPDB API
+    abuseipdb_api_key: str = ""
+    abuseipdb_base_url: str = "https://api.abuseipdb.com/api/v2"
+
+    # VirusTotal API
+    virustotal_api_key: str = ""
+    virustotal_base_url: str = "https://www.virustotal.com/api/v3"
+
+    # IPQualityScore API
+    ipqualityscore_api_key: str = ""
+    ipqualityscore_base_url: str = "https://ipqualityscore.com/api/json"
+
+    # Cache TTL for IP reputation (seconds) — default 30 minutes
+    ip_reputation_cache_ttl: int = 1800
+
+    # Abuse score threshold for alerting (0–100)
+    ip_reputation_abuse_threshold: int = 70
+
+    # Max requests per IP before triggering alert
+    ip_reputation_max_requests_per_ip: int = 300
+
+    # Rate limit for API calls to external providers (calls per minute)
+    ip_reputation_rate_limit: int = 30
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @property

@@ -66,6 +66,11 @@ class TrafficState:
         # Alert counters (to avoid spamming same alerts)
         self._last_alerts: Dict[str, float] = {}
 
+    async def _add_alert(self, alert: dict):
+        """Add an alert to the state (used by external modules like IP reputation)."""
+        # Simply log the alert - it will be picked up in the next drain_batch cycle
+        logger.warning(f"Alert from IP reputation: {alert.get('message', '')}")
+
     async def add_entry(self, ip: str, method: str, endpoint: str,
                          status: int, size: int, ua: str = "", referer: str = ""):
         async with self._lock:

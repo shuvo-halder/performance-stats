@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import TrafficPanel from './components/TrafficPanel';
+import ThreatPanel from './components/ThreatPanel';
 import { getStats, getHistory, getCurrentUser, isAuthenticated, logout } from './api';
 import './styles/dashboard.css';
 
@@ -420,7 +421,7 @@ function renderMiniChart(data, color) {
 function App() {
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
   const [user, setUser] = useState(getCurrentUser());
-  const [view, setView] = useState('dashboard'); // 'dashboard' or 'traffic'
+  const [view, setView] = useState('dashboard'); // 'dashboard', 'traffic', or 'threat'
 
   const handleLogin = useCallback(() => {
     setAuthenticated(true);
@@ -452,6 +453,12 @@ function App() {
       >
         🚦 Traffic
       </button>
+      <button
+        className={`nav-btn ${view === 'threat' ? 'active' : ''}`}
+        onClick={() => setView('threat')}
+      >
+        🛡️ Threat Intel
+      </button>
       <span className="nav-user">👤 {user?.username || 'user'}</span>
       <button onClick={handleLogout} className="nav-logout" title="Sign out">🚪</button>
     </nav>
@@ -475,6 +482,23 @@ function App() {
           <footer className="footer">
             <span>Server Stats Monitor v2.0.0 · Real-time Traffic</span>
             <span>WebSocket auto-connects · Falls back to polling</span>
+          </footer>
+        </div>
+      )}
+      {view === 'threat' && (
+        <div className="app">
+          <header className="header">
+            <div className="header-left">
+              <h1 className="header-title">🛡️ Threat Intelligence</h1>
+            </div>
+            <div className="header-right">
+              <button onClick={() => setView('dashboard')} className="traffic-nav-btn" title="Back to Dashboard">🖥️ Dashboard</button>
+            </div>
+          </header>
+          <ThreatPanel />
+          <footer className="footer">
+            <span>Server Stats Monitor v2.0.0 · IP Reputation & Threat Intel</span>
+            <span>Real-time IP enrichment · Multi-provider fallback</span>
           </footer>
         </div>
       )}

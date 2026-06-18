@@ -39,6 +39,20 @@ Track CPU, memory, disk, network, services, and security metrics in real-time wi
 - ✅ Historical trend charts (1h / 6h / 24h / 7d)
 - ✅ Auto-refresh every 10 seconds
 
+### IP Reputation & Threat Intelligence (v2.1.0)
+- ✅ Multi-provider IP reputation lookups (AbuseIPDB, VirusTotal, IPQualityScore)
+- ✅ In-memory TTL cache + SQLite persistence for IP reputation data
+- ✅ Real-time IP enrichment during traffic processing
+- ✅ Abuse score 0–100, country, ISP, ASN, reverse DNS detection
+- ✅ Proxy / VPN / Tor / Bot threat flagging
+- ✅ 3-tier classification: SAFE → SUSPICIOUS → MALICIOUS
+- ✅ Alert generation for malicious IPs, high-RPS bots, proxy detection
+- ✅ Async HTTP client (httpx) with rate limiting and retry logic
+- ✅ Dedicated Threat Intelligence dashboard panel
+- ✅ IP detail modal with force re-check capability
+- ✅ Traffic-by-country geo visualization
+- ✅ Top malicious IPs table with abuse scores and threat flags
+
 ---
 
 ## 🚀 Quick Start
@@ -135,10 +149,20 @@ chmod +x server-stats.sh
 │  │  └─ security.py → failed SSH login attempts         │    │
 │  └──────────────────────────────────────────────────────┘    │
 │                        │                                      │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  IP Reputation (async, multi-provider)               │    │
+│  │  ├─ service.py   → AbuseIPDB, VirusTotal, IPQS      │    │
+│  │  ├─ models.py    → SQLite ip_reputation table       │    │
+│  │  ├─ router.py    → /ip/* REST endpoints             │    │
+│  │  └─ integration.py → enrichment + alerting          │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                        │                                      │
 │              ┌─────────▼─────────┐                            │
 │              │   SQLite DB       │                            │
 │              │  (historical      │                            │
-│              │   snapshots)      │                            │
+│              │   snapshots,      │                            │
+│              │   traffic logs,   │                            │
+│              │   ip_reputation)  │                            │
 │              └───────────────────┘                            │
 └───────────────────────────────────────────────────────────────┘
 
@@ -164,6 +188,14 @@ All endpoints require an API key. Pass it via:
 | `GET` | `/api/health` | Health check |
 | `GET` | `/api/config` | Current thresholds & settings |
 | `GET` | `/docs` | Swagger UI (interactive API docs) |
+| `GET` | `/traffic/live` | Current live traffic snapshot (RPS, IPs, endpoints) |
+| `GET` | `/traffic/history?period=1h` | Historical traffic aggregates |
+| `WS` | `/ws/traffic` | WebSocket pushing live traffic every 2s |
+| `GET` | `/ip/{ip}` | Full IP reputation data (cached or live lookup) |
+| `GET` | `/ip/check/{ip}` | Force re-check IP reputation (bypass cache) |
+| `GET` | `/ip/top-malicious?limit=20` | Highest risk IPs from recent traffic |
+| `GET` | `/ip/stats` | Threat summary: % malicious, top countries, flagged count |
+| `POST` | `/ip/batch-check` | Batch check up to 50 IPs at once |
 
 ### Example
 
@@ -202,6 +234,13 @@ Response:
 | `DISK_THRESHOLD` | `90` | Disk alert threshold (%) |
 | `SERVICES` | `nginx,docker,mysql` | Services to monitor |
 | `COLLECTION_INTERVAL` | `60` | Background collection interval (s) |
+| `ABUSEIPDB_API_KEY` | — | AbuseIPDB API key for IP reputation lookups |
+| `VIRUSTOTAL_API_KEY` | — | VirusTotal API key for IP reputation lookups |
+| `IPQUALITYSCORE_API_KEY` | — | IPQualityScore API key for IP reputation lookups |
+| `IP_REPUTATION_CACHE_TTL` | `1800` | Cache TTL for IP reputation (seconds) |
+| `IP_REPUTATION_ABUSE_THRESHOLD` | `70` | Abuse score threshold for alerting (0–100) |
+| `IP_REPUTATION_MAX_REQUESTS_PER_IP` | `300` | Max requests per IP before alert |
+| `IP_REPUTATION_RATE_LIMIT` | `30` | API calls per minute to external providers |
 
 ### CLI Script Configuration (`server-stats.conf`)
 
@@ -260,9 +299,17 @@ performance-stats/
 │       │   ├── network.py      # Network metrics
 │       │   ├── services.py     # Service status + auto-restart
 │       │   ├── processes.py    # Top processes
-│       │   └── security.py     # Failed login attempts
+│       │   ├── security.py     # Failed login attempts
+│       │   └── traffic.py      # In-memory traffic sliding window
+│       ├── ip_reputation/      # Threat Intelligence module
+│       │   ├── service.py      # Multi-provider IP lookups + caching
+│       │   ├── models.py       # SQLite ip_reputation table
+│       │   ├── router.py       # /ip/* FastAPI endpoints
+│       │   └── integration.py  # Real-time enrichment + alerting
 │       └── routers/
-│           └── stats.py        # API endpoints
+│           ├── stats.py        # System stats endpoints
+│           ├── auth.py         # Authentication endpoints
+│           └── traffic.py      # Traffic monitoring + WebSocket
 ├── frontend/                   # React dashboard
 │   ├── package.json
 │   ├── Dockerfile              # Multi-stage build (Node → Nginx)
