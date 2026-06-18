@@ -3,7 +3,7 @@ import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import TrafficPanel from './components/TrafficPanel';
 import ThreatPanel from './components/ThreatPanel';
-import { getStats, getHistory, getCurrentUser, isAuthenticated, logout } from './api';
+import { getStats, getLatestStats, getHistory, getCurrentUser, isAuthenticated, logout } from './api';
 import './styles/dashboard.css';
 
 function Dashboard({ user, onLogout, onShowTraffic }) {
@@ -15,17 +15,28 @@ function Dashboard({ user, onLogout, onShowTraffic }) {
   const [historyPeriod, setHistoryPeriod] = useState('1h');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isBackground = false) => {
     try {
+      // First load: show cached data instantly, then refresh
+      if (!isBackground) {
+        try {
+          const latest = await getLatestStats();
+          setData(latest);
+          setError(null);
+        } catch (_) {
+          // No cached data yet, that's fine
+        }
+      }
+      // Always fetch fresh data
       const stats = await getStats();
       setData(stats);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      if (!data) setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [data]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -44,7 +55,7 @@ function Dashboard({ user, onLogout, onShowTraffic }) {
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
-      fetchData();
+      fetchData(true);
       fetchHistory();
     }, 10000);
     return () => clearInterval(interval);

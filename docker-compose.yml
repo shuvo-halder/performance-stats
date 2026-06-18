@@ -5,8 +5,10 @@ services:
     build: ./backend
     container_name: server-stats-api
     restart: unless-stopped
-    ports:
-      - "${API_PORT:-8000}:8000"
+    # Port 8000 is NOT exposed to host — only accessible via Docker internal network
+    # All API access goes through the Nginx reverse proxy on port 8080
+    # ports:
+    #   - "${API_PORT:-8000}:8000"
     pid: "host"
     volumes:
       - ./backend/data:/app/data
@@ -46,6 +48,9 @@ services:
       - "${DASHBOARD_PORT:-8080}:80"
     depends_on:
       - backend
+    # All API calls go through Nginx reverse proxy (same origin)
+    # REACT_APP_API_URL is empty so the frontend uses relative paths
+    # Nginx proxies /api/, /traffic/, /ip/, /ws/ to the backend
     environment:
-      - REACT_APP_API_URL=http://localhost:${API_PORT:-8000}
+      - REACT_APP_API_URL=
       - REACT_APP_API_KEY=${MASTER_API_KEY:-sk-prod-server-stats-master-key-2026}
