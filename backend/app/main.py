@@ -6,16 +6,19 @@ import logging
 
 from app.database import init_db, async_session, Snapshot
 from app.collectors import collect_all_metrics
+from app.collectors.traffic import start_traffic_monitoring
 from app.routers.stats import router as stats_router
 from app.routers.auth import router as auth_router
+from app.routers.traffic import router as traffic_router
 from app.auth import get_current_user
 from app.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("server-stats")
 
-# Background task reference
+# Background task references
 background_task = None
+traffic_task = None
 
 
 async def periodic_collection():
@@ -43,9 +46,12 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
 
     # Start background collection
-    global background_task
+    global background_task, traffic_task
     background_task = asyncio.create_task(periodic_collection())
     logger.info(f"Background collection started (interval: {settings.collection_interval}s)")
+
+    # Start traffic monitoring
+    traffic_task = asyncio.create_task(start_traffic_monitoring())
 
     yield
 
@@ -54,6 +60,12 @@ async def lifespan(app: FastAPI):
         background_task.cancel()
         try:
             await background_task
+        except asyncio.CancelledError:
+            pass
+    if traffic_task:
+        traffic_task.cancel()
+        try:
+            await traffic_task
         except asyncio.CancelledError:
             pass
     logger.info("Server shutting down")
@@ -78,6 +90,7 @@ app.add_middleware(
 # Routes
 app.include_router(stats_router)
 app.include_router(auth_router)
+app.include_router(traffic_router)
 
 
 @app.get("/")
@@ -95,11 +108,14 @@ async def root():
             "create_api_key": "POST /api/auth/api-keys",
             "seed_admin": "POST /api/auth/admin/seed",
         },
-        "endpoints": {
-            "GET /api/stats": "Collect and return current system stats (requires auth)",
-            "GET /api/stats/latest": "Get latest saved snapshot",
-            "GET /api/stats/history": "Get historical stats (query: ?period=1h|6h|24h|7d)",
-            "GET /api/health": "Health check (public)",
-            "GET /api/config": "View current configuration",
-        },
+    "endpoints": {
+        "GET /api/stats": "Collect and return current system stats (requires auth)",
+        "GET /api/stats/latest": "Get latest saved snapshot",
+        "GET /api/stats/history": "Get historical stats (query: ?period=1h|6h|24h|7d)",
+        "GET /api/health": "Health check (public)",
+        "GET /api/config": "View current configuration",
+        "GET /traffic/live": "Current live traffic snapshot (RPS, IPs, endpoints, status codes)",
+        "GET /traffic/history": "Historical traffic aggregates (query: ?period=1h|6h|24h|7d)",
+        "WS /ws/traffic": "WebSocket pushing live traffic every 2 seconds",
+    },
     }

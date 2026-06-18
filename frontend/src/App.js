@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
+import TrafficPanel from './components/TrafficPanel';
 import { getStats, getHistory, getCurrentUser, isAuthenticated, logout } from './api';
 import './styles/dashboard.css';
 
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, onShowTraffic }) {
   const [showAdmin, setShowAdmin] = useState(false);
   const [data, setData] = useState(null);
   const [history, setHistory] = useState(null);
@@ -98,6 +99,7 @@ function Dashboard({ user, onLogout }) {
             <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
             <span className="toggle-label">Auto</span>
           </label>
+          <button onClick={onShowTraffic} className="traffic-nav-btn" title="Traffic Monitor">🚦</button>
           {user?.is_admin && (
             <button onClick={() => setShowAdmin(true)} className="admin-btn" title="User Management">👥</button>
           )}
@@ -418,6 +420,7 @@ function renderMiniChart(data, color) {
 function App() {
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
   const [user, setUser] = useState(getCurrentUser());
+  const [view, setView] = useState('dashboard'); // 'dashboard' or 'traffic'
 
   const handleLogin = useCallback(() => {
     setAuthenticated(true);
@@ -434,7 +437,49 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  return <Dashboard user={user} onLogout={handleLogout} />;
+  // Navigation bar
+  const nav = (
+    <nav className="app-nav">
+      <button
+        className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`}
+        onClick={() => setView('dashboard')}
+      >
+        🖥️ Dashboard
+      </button>
+      <button
+        className={`nav-btn ${view === 'traffic' ? 'active' : ''}`}
+        onClick={() => setView('traffic')}
+      >
+        🚦 Traffic
+      </button>
+      <span className="nav-user">👤 {user?.username || 'user'}</span>
+      <button onClick={handleLogout} className="nav-logout" title="Sign out">🚪</button>
+    </nav>
+  );
+
+  return (
+    <>
+      {nav}
+      {view === 'dashboard' && <Dashboard user={user} onLogout={() => {}} onShowTraffic={() => setView('traffic')} />}
+      {view === 'traffic' && (
+        <div className="app">
+          <header className="header">
+            <div className="header-left">
+              <h1 className="header-title">🚦 Traffic Monitor</h1>
+            </div>
+            <div className="header-right">
+              <button onClick={() => setView('dashboard')} className="traffic-nav-btn" title="Back to Dashboard">🖥️ Dashboard</button>
+            </div>
+          </header>
+          <TrafficPanel />
+          <footer className="footer">
+            <span>Server Stats Monitor v2.0.0 · Real-time Traffic</span>
+            <span>WebSocket auto-connects · Falls back to polling</span>
+          </footer>
+        </div>
+      )}
+    </>
+  );
 }
 
 export default App;

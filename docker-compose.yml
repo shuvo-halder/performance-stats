@@ -16,6 +16,9 @@ services:
       - /etc/os-release:/etc/os-release:ro
       - /run/systemd:/run/systemd:ro
       - /run/dbus:/run/dbus:ro
+      - /var/log/nginx:/var/log/nginx:ro
+      - /var/log/apache2:/var/log/apache2:ro
+      - /var/log/httpd:/var/log/httpd:ro
     environment:
       - HOST=0.0.0.0
       - PORT=8000

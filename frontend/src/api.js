@@ -146,6 +146,16 @@ export function deleteApiKey(keyId) {
   });
 }
 
+// ── Traffic Monitoring API ─────────────────────────────────────────
+
+export function getTrafficLive() {
+  return request('/traffic/live');
+}
+
+export function getTrafficHistory(period = '1h') {
+  return request(`/traffic/history?period=${period}`);
+}
+
 // ── Admin: User Management ─────────────────────────────────────────
 
 export function listUsers() {
