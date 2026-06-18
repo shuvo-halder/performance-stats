@@ -2,10 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for psutil
+# Install system dependencies for psutil and collectors
 RUN apt-get update && apt-get install -y \
     gcc \
     procps \
+    grep \
+    systemd \
+    dbus \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

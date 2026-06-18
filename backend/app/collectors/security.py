@@ -24,7 +24,10 @@ async def collect_security_info() -> Dict:
                 if stdout:
                     failed_logins = len(stdout.decode().strip().split("\n"))
                 break
-            except (FileNotFoundError, Exception):
+            except FileNotFoundError:
+                # grep binary not found or log file missing (e.g. inside Docker)
+                continue
+            except Exception:
                 continue
 
     return {

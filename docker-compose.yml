@@ -7,12 +7,15 @@ services:
     restart: unless-stopped
     ports:
       - "${API_PORT:-8000}:8000"
+    pid: "host"
     volumes:
       - ./backend/data:/app/data
       - /proc:/proc:ro
       - /sys:/sys:ro
       - /var/log:/var/log:ro
       - /etc/os-release:/etc/os-release:ro
+      - /run/systemd:/run/systemd:ro
+      - /run/dbus:/run/dbus:ro
     environment:
       - HOST=0.0.0.0
       - PORT=8000

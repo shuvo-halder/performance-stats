@@ -14,24 +14,28 @@ async def collect_services_info() -> Dict:
         status = "unknown"
 
         if is_linux:
-            # Check via systemctl
-            proc = await asyncio.create_subprocess_exec(
-                "systemctl", "is-active", svc,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            stdout, _ = await proc.communicate()
-            status = stdout.decode().strip() if stdout else "unknown"
+            try:
+                # Check via systemctl
+                proc = await asyncio.create_subprocess_exec(
+                    "systemctl", "is-active", svc,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                stdout, _ = await proc.communicate()
+                status = stdout.decode().strip() if stdout else "unknown"
 
-            # If inactive and auto-restart enabled
-            if status != "active" and settings.auto_restart_failed_services:
-                restart_ok = await _restart_service(svc)
-                auto_restart_results.append({
-                    "service": svc,
-                    "restarted": restart_ok,
-                })
-                if restart_ok:
-                    status = "active (restarted)"
+                # If inactive and auto-restart enabled
+                if status != "active" and settings.auto_restart_failed_services:
+                    restart_ok = await _restart_service(svc)
+                    auto_restart_results.append({
+                        "service": svc,
+                        "restarted": restart_ok,
+                    })
+                    if restart_ok:
+                        status = "active (restarted)"
+            except FileNotFoundError:
+                # systemctl not available (e.g. running inside Docker without host systemd access)
+                status = "unavailable (container)"
         else:
             # Non-Linux: check if process is running via psutil
             import psutil
