@@ -174,6 +174,24 @@ export function makeAdmin(userId) {
   return request(`/api/auth/admin/users/${userId}/make-admin`, { method: 'POST' });
 }
 
+// ── Advanced Metrics API (Grafana Dashboard) ──────────────────────
+
+export function getMetricsCurrent() {
+  return request('/metrics/current');
+}
+
+export function getMetricsHistory(period = '1h') {
+  return request(`/metrics/history?period=${period}`);
+}
+
+export function getNetworkDeep() {
+  return request('/metrics/network/deep');
+}
+
+export function getDiskIOPS() {
+  return request('/metrics/disk/iops');
+}
+
 // ── IP Reputation API ───────────────────────────────────────────────
 
 export function getIPReputation(ip) {
