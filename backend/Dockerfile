@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     grep \
     systemd \
     dbus \
+    iproute2 \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

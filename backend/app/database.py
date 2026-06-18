@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, Float, String, DateTime, JSON, Boolean
+from sqlalchemy import Column, Integer, Float, String, DateTime, JSON, Boolean, text
 from datetime import datetime, timezone
 import os
 
@@ -122,8 +122,15 @@ class TrafficAggregate(Base):
 
 
 async def init_db():
+    """Initialize database tables and enable WAL mode for SQLite."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Enable WAL mode for concurrent read/write performance
+        await conn.execute(text("PRAGMA journal_mode=WAL"))
+        # Set busy timeout to 5 seconds to avoid "database is locked" errors
+        await conn.execute(text("PRAGMA busy_timeout=5000"))
+        # Enable foreign keys
+        await conn.execute(text("PRAGMA foreign_keys=ON"))
 
 
 async def get_session():

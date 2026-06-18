@@ -177,7 +177,7 @@ class TrafficState:
 
         return alerts
 
-    async def flush_batch_to_db(self) -> int:
+    async def flush_batch_to_db(self, max_retries: int = 3) -> int:
         """Write queued raw entries to DB. Returns count written."""
         async with self._lock:
             batch = list(self._batch_queue)
@@ -188,38 +188,43 @@ class TrafficState:
             return 0
 
         written = 0
-        try:
-            async with async_session() as session:
-                # Batch insert raw logs
-                for ip, method, endpoint, status, size, ua, referer in batch:
-                    session.add(TrafficLog(
-                        timestamp=datetime.now(timezone.utc),
-                        ip=ip,
-                        method=method,
-                        endpoint=endpoint[:512],
-                        status_code=status,
-                        response_size=size,
-                        user_agent=ua[:512] if ua else None,
-                        referer=referer[:512] if referer else None,
-                    ))
-                    written += 1
+        for attempt in range(max_retries):
+            try:
+                async with async_session() as session:
+                    # Batch insert raw logs
+                    for ip, method, endpoint, status, size, ua, referer in batch:
+                        session.add(TrafficLog(
+                            timestamp=datetime.now(timezone.utc),
+                            ip=ip,
+                            method=method,
+                            endpoint=endpoint[:512],
+                            status_code=status,
+                            response_size=size,
+                            user_agent=ua[:512] if ua else None,
+                            referer=referer[:512] if referer else None,
+                        ))
+                        written += 1
 
-                # Insert aggregate
-                if agg:
-                    session.add(TrafficAggregate(**agg))
+                    # Insert aggregate
+                    if agg:
+                        session.add(TrafficAggregate(**agg))
 
-                await session.commit()
+                    await session.commit()
 
-            async with self._lock:
-                self._batch_queue = self._batch_queue[len(batch):]
-        except Exception as e:
-            logger.error(f"Traffic DB flush error: {e}")
+                async with self._lock:
+                    self._batch_queue = self._batch_queue[len(batch):]
+                break  # success
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Traffic DB flush error (attempt {attempt+1}/{max_retries}): {e}")
+                    await asyncio.sleep(0.5)
+                else:
+                    logger.error(f"Traffic DB flush failed after {max_retries} attempts: {e}")
 
         return written
 
     async def _drain_aggregate_only(self) -> Optional[dict]:
         """Same as drain_batch but does NOT reset bandwidth (called from flush)."""
-        # Reuse logic but don't reset counters (they were already reset by drain_batch)
         now = time.time()
         cutoff = now - self.window
         window_entries = [e for e in self._entries if e[0] >= cutoff]
@@ -254,9 +259,8 @@ class TrafficState:
         top_ips = sorted(ip_counts.items(), key=lambda x: -x[1])[:20]
         top_endpoints = sorted(endpoint_counts.items(), key=lambda x: -x[1])[:20]
 
-        alerts = {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0}
-        # Reuse bandwidth that was already calculated
-        bw = self._bandwidth_rx + self._bandwidth_tx if hasattr(self, '_bandwidth_rx') else 0
+        # bandwidth was already reset by drain_batch, so use 0 for DB
+        bw = 0
 
         return {
             "rps": rps,
@@ -267,7 +271,7 @@ class TrafficState:
             "top_ips": [{"ip": ip, "count": cnt} for ip, cnt in top_ips],
             "top_endpoints": [{"endpoint": ep, "count": cnt} for ep, cnt in top_endpoints],
             "status_code_counts": status_counts,
-            "alerts": None,  # alert info is ephemeral, skip in DB
+            "alerts": None,
         }
 
     async def get_live_snapshot(self) -> dict:
