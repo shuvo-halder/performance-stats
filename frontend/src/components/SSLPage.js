@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { scanSSL, getSSLCertificates, getSSLCertificate } from '../api';
+import { scanSSL, getSSLCertificates, getSSLCertificate, deleteSSLCertificate } from '../api';
 
 const expiryColor = (d) => { if (d <= 3) return '#ef4444'; if (d <= 7) return '#f59e0b'; if (d <= 15) return '#f97316'; if (d <= 30) return '#eab308'; return '#22c55e'; };
 
@@ -22,6 +22,14 @@ export default function SSLPage() {
       fetch();
     } catch (e) { alert(e.message); }
     setScanning(false);
+  };
+
+  const handleDelete = async (id, hostname) => {
+    if (!window.confirm(`Delete certificate for "${hostname}"?`)) return;
+    try {
+      await deleteSSLCertificate(id);
+      fetch();
+    } catch (e) { alert(e.message); }
   };
 
   const showDetail = async (id) => {
@@ -54,7 +62,10 @@ export default function SSLPage() {
                     <span style={{fontSize:11}}>{c.valid_to ? new Date(c.valid_to).toLocaleDateString() : '—'}</span>
                     <span style={{color:expiryColor(c.days_remaining||999),fontWeight:700}}>{c.days_remaining !== null ? `${c.days_remaining}d` : '—'}</span>
                     <span style={{color:c.status==='VALID'?'#22c55e':c.status==='EXPIRING_SOON'?'#f59e0b':'#ef4444',fontWeight:600}}>{c.status}</span>
-                    <button className="mode-btn" onClick={() => showDetail(c.id)}>View</button>
+                    <span style={{display:'flex',gap:4}}>
+                      <button className="mode-btn" onClick={() => showDetail(c.id)}>View</button>
+                      <button className="mode-btn" style={{color:'#ef4444'}} onClick={() => handleDelete(c.id, c.hostname)}>Del</button>
+                    </span>
                   </div>
                 ))}
               </div>

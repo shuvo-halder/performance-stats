@@ -71,11 +71,8 @@ export function testAlertChannel(id) { return request(`/alerts/channels/${id}/te
 export function getServers() { return request('/servers'); }
 export function getServerSummary() { return request('/servers/summary'); }
 export function registerServer(data) { return request('/servers/register', { method: 'POST', body: JSON.stringify(data) }); }
-<<<<<<< HEAD
-export function deleteServer(id) { return request(`/servers/${id}`, { method: 'DELETE' }); }
-=======
->>>>>>> aea3279 (update :: v3 Tier-1)
 export function getServer(id) { return request(`/servers/${id}`); }
+export function deleteServer(id) { return request(`/servers/${id}`, { method: 'DELETE' }); }
 
 // ── UPTIME MONITOR ────────────────────────────────────────────────
 export function getUptimeMonitors() { return request('/uptime/monitors'); }
@@ -90,20 +87,12 @@ export function getUptimeIncidents(id) { return request(`/uptime/monitors/${id}/
 export function scanSSL(hostname, port = 443) { return request('/ssl/scan', { method: 'POST', body: JSON.stringify({ hostname, port }) }); }
 export function getSSLCertificates() { return request('/ssl/certificates'); }
 export function getSSLCertificate(id) { return request(`/ssl/certificates/${id}`); }
+export function deleteSSLCertificate(id) { return request(`/ssl/certificates/${id}`, { method: 'DELETE' }); }
 
 // ── PROCESS MONITOR ───────────────────────────────────────────────
-<<<<<<< HEAD
-export function getMonitoredProcesses() { return request('/processes/'); }
-export function createMonitoredProcess(data) { return request('/processes/', { method: 'POST', body: JSON.stringify(data) }); }
-export function deleteMonitoredProcess(id) { return request(`/processes/${id}/`, { method: 'DELETE' }); }
-export function checkMonitoredProcess(id) { return request(`/processes/${id}/check`, { method: 'POST' }); }
-export function checkAllProcesses() { return request('/processes/check-all', { method: 'POST' }); }
-export function getProcessEvents(id, limit = 50) { return request(`/processes/${id}/events?limit=${limit}`); }
-=======
 export function getMonitoredProcesses() { return request('/processes'); }
 export function createMonitoredProcess(data) { return request('/processes', { method: 'POST', body: JSON.stringify(data) }); }
 export function deleteMonitoredProcess(id) { return request(`/processes/${id}`, { method: 'DELETE' }); }
 export function checkMonitoredProcess(id) { return request(`/processes/${id}/check`, { method: 'POST' }); }
 export function checkAllProcesses() { return request('/processes/check-all', { method: 'POST' }); }
 export function getProcessEvents(id, limit = 50) { return request(`/processes/${id}/events?limit=${limit}`); }
->>>>>>> aea3279 (update :: v3 Tier-1)

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getUptimeMonitors, createUptimeMonitor, deleteUptimeMonitor, checkUptimeNow, getUptimeHistory, getUptimeIncidents } from '../api';
+import { getUptimeMonitors, createUptimeMonitor, updateUptimeMonitor, deleteUptimeMonitor, checkUptimeNow, getUptimeHistory, getUptimeIncidents } from '../api';
 
 export default function UptimePage() {
   const [monitors, setMonitors] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', monitor_type: 'https', target: '', check_interval: 60, timeout: 10, expected_status_code: 200 });
+  const [editForm, setEditForm] = useState(null);
   const [details, setDetails] = useState(null);
 
   const fetch = useCallback(async () => {
@@ -17,7 +18,13 @@ export default function UptimePage() {
     try { await createUptimeMonitor(form); setShowForm(false); fetch(); } catch (e) { alert(e.message); }
   };
   const handleCheck = async (id) => { await checkUptimeNow(id); fetch(); };
-  const handleDelete = async (id) => { await deleteUptimeMonitor(id); fetch(); };
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this monitor?')) return;
+    await deleteUptimeMonitor(id); fetch();
+  };
+  const handleEdit = async () => {
+    try { await updateUptimeMonitor(editForm.id, editForm); setEditForm(null); fetch(); } catch (e) { alert(e.message); }
+  };
   const showDetails = async (id) => {
     try {
       const h = await getUptimeHistory(id);
@@ -78,6 +85,7 @@ export default function UptimePage() {
                     <span style={{display:'flex',gap:4}}>
                       <button className="mode-btn" onClick={() => handleCheck(m.id)}>Check</button>
                       <button className="mode-btn" onClick={() => showDetails(m.id)}>Logs</button>
+                      <button className="mode-btn" onClick={() => setEditForm({id:m.id, name:m.name, monitor_type:m.monitor_type, target:m.target, check_interval:m.check_interval, timeout:m.timeout, expected_status_code:m.expected_status_code})}>Edit</button>
                       <button className="mode-btn" style={{color:'#ef4444'}} onClick={() => handleDelete(m.id)}>Del</button>
                     </span>
                   </div>
@@ -87,6 +95,29 @@ export default function UptimePage() {
           </div>
         </div>
       </div>
+
+      {editForm && (
+        <div className="modal-overlay" onClick={() => setEditForm(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth:500}}>
+            <div className="modal-header"><h2>Edit Monitor</h2><button className="modal-close" onClick={() => setEditForm(null)}>×</button></div>
+            <div className="modal-body">
+              {['name','target','check_interval','timeout','expected_status_code'].map(f => (
+                <div className="form-group" key={f}>
+                  <label>{f.toUpperCase()}</label>
+                  <input value={editForm[f]} onChange={e => setEditForm({...editForm,[f]:e.target.value})} placeholder={f} />
+                </div>
+              ))}
+              <div className="form-group">
+                <label>TYPE</label>
+                <select value={editForm.monitor_type} onChange={e => setEditForm({...editForm,monitor_type:e.target.value})} style={{width:'100%',padding:10,background:'#0f172a',border:'1px solid #334155',borderRadius:6,color:'#e2e8f0'}}>
+                  <option value="https">HTTPS</option><option value="http">HTTP</option><option value="tcp">TCP</option>
+                </select>
+              </div>
+              <button className="login-btn" onClick={handleEdit}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {details && (
         <div className="modal-overlay" onClick={() => setDetails(null)}>

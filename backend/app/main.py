@@ -13,10 +13,6 @@ from app.routers.traffic import router as traffic_router
 from app.ip_reputation.router import router as ip_reputation_router
 from app.ip_reputation.integration import ip_integrator
 from app.metrics.router import router as metrics_router, start_background_collection, stop_background_collection
-<<<<<<< HEAD
-from app.agent.monitor_agent import MonitorAgent
-=======
->>>>>>> aea3279 (update :: v3 Tier-1)
 from app.alert_manager.router import router as alert_router
 from app.multi_server.router import router as servers_router
 from app.uptime_monitor.router import router as uptime_router

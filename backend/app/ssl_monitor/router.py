@@ -20,6 +20,13 @@ async def list_certificates():
     return {"certificates": await ssl_monitor.list_certificates()}
 
 
+@router.delete("/certificates/{cert_id}")
+async def delete_certificate(cert_id: int):
+    if not await ssl_monitor.delete_certificate(cert_id):
+        raise HTTPException(404, "Certificate not found")
+    return {"status": "deleted"}
+
+
 @router.get("/certificates/{cert_id}")
 async def get_certificate(cert_id: int):
     cert = await ssl_monitor.get_certificate(cert_id)

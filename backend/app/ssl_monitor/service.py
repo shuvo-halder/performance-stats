@@ -100,6 +100,16 @@ class SSLMonitorService:
                      "last_checked": c.last_checked.isoformat() if c.last_checked else None}
                     for c in r.scalars().all()]
 
+    async def delete_certificate(self, cert_id: int) -> bool:
+        async with async_session() as session:
+            r = await session.execute(select(SSLCertificate).where(SSLCertificate.id == cert_id))
+            c = r.scalar_one_or_none()
+            if not c:
+                return False
+            await session.delete(c)
+            await session.commit()
+            return True
+
     async def get_certificate(self, cert_id: int) -> dict:
         async with async_session() as session:
             r = await session.execute(select(SSLCertificate).where(SSLCertificate.id == cert_id))
