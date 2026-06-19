@@ -13,6 +13,11 @@ from app.routers.traffic import router as traffic_router
 from app.ip_reputation.router import router as ip_reputation_router
 from app.ip_reputation.integration import ip_integrator
 from app.metrics.router import router as metrics_router, start_background_collection, stop_background_collection
+from app.alert_manager.router import router as alert_router
+from app.multi_server.router import router as servers_router
+from app.uptime_monitor.router import router as uptime_router
+from app.ssl_monitor.router import router as ssl_router
+from app.process_monitor.router import router as process_router
 from app.auth import get_current_user
 from app.config import settings
 
@@ -106,6 +111,11 @@ app.include_router(auth_router)
 app.include_router(traffic_router)
 app.include_router(ip_reputation_router)
 app.include_router(metrics_router)
+app.include_router(alert_router)
+app.include_router(servers_router)
+app.include_router(uptime_router)
+app.include_router(ssl_router)
+app.include_router(process_router)
 
 
 @app.get("/")

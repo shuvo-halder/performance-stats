@@ -4,25 +4,18 @@ import AdminPanel from './components/AdminPanel';
 import TrafficPanel from './components/TrafficPanel';
 import ThreatPanel from './components/ThreatPanel';
 import GrafanaDashboard from './components/GrafanaDashboard';
+import AlertCenter from './components/AlertCenter';
+import ServersPage from './components/ServersPage';
+import UptimePage from './components/UptimePage';
+import SSLPage from './components/SSLPage';
+import ProcessPage from './components/ProcessPage';
 import { getCurrentUser, isAuthenticated, logout } from './api';
 import './styles/dashboard.css';
-
-function Dashboard({ user, onLogout, onShowTraffic }) {
-  const [showAdmin, setShowAdmin] = useState(false);
-  return (
-    <>
-      <GrafanaDashboard />
-      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
-    </>
-  );
-}
-
-// ── Main App with Auth ─────────────────────────────────────────────
 
 function App() {
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
   const [user, setUser] = useState(getCurrentUser());
-  const [view, setView] = useState('dashboard'); // 'dashboard', 'traffic', or 'threat'
+  const [view, setView] = useState('dashboard');
 
   const handleLogin = useCallback(() => {
     setAuthenticated(true);
@@ -39,27 +32,16 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  // Navigation bar
   const nav = (
     <nav className="app-nav">
-      <button
-        className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`}
-        onClick={() => setView('dashboard')}
-      >
-        🖥️ Dashboard
-      </button>
-      <button
-        className={`nav-btn ${view === 'traffic' ? 'active' : ''}`}
-        onClick={() => setView('traffic')}
-      >
-        🚦 Traffic
-      </button>
-      <button
-        className={`nav-btn ${view === 'threat' ? 'active' : ''}`}
-        onClick={() => setView('threat')}
-      >
-        🛡️ Threat Intel
-      </button>
+      <button className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`} onClick={() => setView('dashboard')}>📊 Monitor</button>
+      <button className={`nav-btn ${view === 'alerts' ? 'active' : ''}`} onClick={() => setView('alerts')}>🔔 Alerts</button>
+      <button className={`nav-btn ${view === 'servers' ? 'active' : ''}`} onClick={() => setView('servers')}>🖥️ Servers</button>
+      <button className={`nav-btn ${view === 'uptime' ? 'active' : ''}`} onClick={() => setView('uptime')}>⏱️ Uptime</button>
+      <button className={`nav-btn ${view === 'ssl' ? 'active' : ''}`} onClick={() => setView('ssl')}>🔒 SSL</button>
+      <button className={`nav-btn ${view === 'processes' ? 'active' : ''}`} onClick={() => setView('processes')}>⚙️ Processes</button>
+      <button className={`nav-btn ${view === 'traffic' ? 'active' : ''}`} onClick={() => setView('traffic')}>🚦 Traffic</button>
+      <button className={`nav-btn ${view === 'threat' ? 'active' : ''}`} onClick={() => setView('threat')}>🛡️ Threat</button>
       <span className="nav-user">👤 {user?.username || 'user'}</span>
       <button onClick={handleLogout} className="nav-logout" title="Sign out">🚪</button>
     </nav>
@@ -68,41 +50,14 @@ function App() {
   return (
     <>
       {nav}
-      {view === 'dashboard' && <Dashboard user={user} onLogout={() => {}} onShowTraffic={() => setView('traffic')} />}
-      {view === 'traffic' && (
-        <div className="app">
-          <header className="header">
-            <div className="header-left">
-              <h1 className="header-title">🚦 Traffic Monitor</h1>
-            </div>
-            <div className="header-right">
-              <button onClick={() => setView('dashboard')} className="traffic-nav-btn" title="Back to Dashboard">🖥️ Dashboard</button>
-            </div>
-          </header>
-          <TrafficPanel />
-          <footer className="footer">
-            <span>Server Stats Monitor v2.0.0 · Real-time Traffic</span>
-            <span>WebSocket auto-connects · Falls back to polling</span>
-          </footer>
-        </div>
-      )}
-      {view === 'threat' && (
-        <div className="app">
-          <header className="header">
-            <div className="header-left">
-              <h1 className="header-title">🛡️ Threat Intelligence</h1>
-            </div>
-            <div className="header-right">
-              <button onClick={() => setView('dashboard')} className="traffic-nav-btn" title="Back to Dashboard">🖥️ Dashboard</button>
-            </div>
-          </header>
-          <ThreatPanel />
-          <footer className="footer">
-            <span>Server Stats Monitor v2.0.0 · IP Reputation & Threat Intel</span>
-            <span>Real-time IP enrichment · Multi-provider fallback</span>
-          </footer>
-        </div>
-      )}
+      {view === 'dashboard' && <GrafanaDashboard />}
+      {view === 'alerts' && <AlertCenter />}
+      {view === 'servers' && <ServersPage />}
+      {view === 'uptime' && <UptimePage />}
+      {view === 'ssl' && <SSLPage />}
+      {view === 'processes' && <ProcessPage />}
+      {view === 'traffic' && <TrafficPanel />}
+      {view === 'threat' && <ThreatPanel />}
     </>
   );
 }

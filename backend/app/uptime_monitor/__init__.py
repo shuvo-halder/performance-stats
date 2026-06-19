@@ -1,0 +1,1 @@
+"""Uptime Monitor — Tier-1 Feature. HTTP/HTTPS/TCP/ICMP endpoint monitoring with availability tracking."""

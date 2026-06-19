@@ -53,6 +53,62 @@ Track CPU, memory, disk, network, services, and security metrics in real-time wi
 - ✅ Traffic-by-country geo visualization
 - ✅ Top malicious IPs table with abuse scores and threat flags
 
+### 🔔 Alert Manager (v3.0 — Tier-1)
+- ✅ Configurable alert rules (CPU, memory, disk, load, service, SSL, threat)
+- ✅ Multi-channel notifications: Email, Telegram, Discord, Slack, Generic Webhook
+- ✅ Alert severity levels: INFO, WARNING, CRITICAL
+- ✅ Duplicate prevention with cooldown system
+- ✅ Alert acknowledgement and resolution workflow
+- ✅ Dedicated Alert Center page with active alerts widget
+
+### 🖥️ Multi-Server & Agent System (v3.0 — Tier-1)
+- ✅ Monitor unlimited servers from a central dashboard
+- ✅ Per-server metrics: CPU, memory, disk, load, processes, services
+- ✅ Auto-registration with secure agent tokens (HMAC-SHA256 signing)
+- ✅ Lightweight Python agent with local caching and retry logic
+- ✅ One-line Linux installation via `curl | bash`
+- ✅ Systemd service with auto-restart
+- ✅ Global infrastructure overview (online/offline/warning/critical)
+
+### ⏱️ Uptime Monitor (v3.0 — Tier-1)
+- ✅ Monitor HTTP, HTTPS, TCP endpoints
+- ✅ Configurable check intervals, timeouts, retries
+- ✅ 24/7 availability percentage tracking
+- ✅ Incident management with downtime duration
+- ✅ Response time monitoring per check
+
+### 🔒 SSL Certificate Monitor (v3.0 — Tier-1)
+- ✅ Scan SSL/TLS certificates for any hostname
+- ✅ Track expiration dates with days-remaining countdown
+- ✅ Color-coded alert levels (30, 15, 7, 3 days)
+- ✅ SAN (Subject Alternative Names) extraction
+- ✅ Certificate details modal with issuer, subject, algorithm
+
+### ⚙️ Process Monitor (v3.0 — Tier-1)
+- ✅ Monitor critical services: nginx, mysql, postgresql, redis, docker, etc.
+- ✅ Real-time CPU and memory usage per process
+- ✅ Process uptime tracking
+- ✅ Auto-restart with configurable max attempts
+- ✅ Event history for all state changes
+
+### 📊 Grafana-Inspired Real-Time Dashboard
+- ✅ Live CPU pressure sparkline with system load (1m/5m/15m)
+- ✅ Memory panel with RAM + Swap usage bars
+- ✅ Disk usage per mount point
+- ✅ Deep network insight: connection states pie chart, top IPs, busiest ports
+- ✅ Disk IOPS monitoring (read/write ops/sec + MB/s)
+- ✅ Raw / Rolling Average / EMA smoothing toggle
+- ✅ WebSocket real-time updates (2s interval)
+- ✅ Historical time-series charts (15m/1h/6h/24h)
+
+### 🚦 Real-Time Traffic Monitoring
+- ✅ Nginx/Apache log tailing with sliding window aggregation
+- ✅ RPS (requests/sec) with sparkline + area chart
+- ✅ Top IPs table with flood highlighting
+- ✅ Top endpoints heatmap
+- ✅ Status code pie chart (2xx/4xx/5xx)
+- ✅ WebSocket push every 2 seconds with polling fallback
+
 ---
 
 ## 🚀 Quick Start
@@ -157,12 +213,29 @@ chmod +x server-stats.sh
 │  │  └─ integration.py → enrichment + alerting          │    │
 │  └──────────────────────────────────────────────────────┘    │
 │                        │                                      │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  Tier-1 Feature Modules                             │    │
+│  │  ├─ alert_manager/ → rules, channels, lifecycle     │    │
+│  │  ├─ multi_server/  → registration, metrics, status  │    │
+│  │  ├─ uptime_monitor/→ HTTP/TCP checks, incidents     │    │
+│  │  ├─ ssl_monitor/   → cert scanning, expiry tracking │    │
+│  │  ├─ process_monitor/→ psutil checks, auto-restart   │    │
+│  │  ├─ metrics/       → EMA smoothing, deep network,   │    │
+│  │  │                   disk IOPS, background collector│    │
+│  │  └─ agent/         → lightweight Python daemon      │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                        │                                      │
 │              ┌─────────▼─────────┐                            │
 │              │   SQLite DB       │                            │
 │              │  (historical      │                            │
 │              │   snapshots,      │                            │
 │              │   traffic logs,   │                            │
-│              │   ip_reputation)  │                            │
+│              │   ip_reputation,  │                            │
+│              │   alerts,         │                            │
+│              │   servers,        │                            │
+│              │   uptime,         │                            │
+│              │   ssl_certs,      │                            │
+│              │   processes)      │                            │
 │              └───────────────────┘                            │
 └───────────────────────────────────────────────────────────────┘
 
@@ -196,6 +269,44 @@ All endpoints require an API key. Pass it via:
 | `GET` | `/ip/top-malicious?limit=20` | Highest risk IPs from recent traffic |
 | `GET` | `/ip/stats` | Threat summary: % malicious, top countries, flagged count |
 | `POST` | `/ip/batch-check` | Batch check up to 50 IPs at once |
+| `GET` | `/metrics/current` | Live dashboard metrics with smoothing (raw/EMA/rolling) |
+| `GET` | `/metrics/history?period=1h` | Historical metric snapshots |
+| `GET` | `/metrics/network/deep` | Deep network: connection states, top IPs, ports |
+| `GET` | `/metrics/disk/iops` | Disk IOPS: read/write ops/sec, throughput |
+| `WS` | `/ws/metrics` | WebSocket pushing live metrics every 2s |
+| `GET` | `/alerts/rules` | List alert rules |
+| `POST` | `/alerts/rules` | Create alert rule |
+| `PUT` | `/alerts/rules/{id}` | Update alert rule |
+| `DELETE` | `/alerts/rules/{id}` | Delete alert rule |
+| `GET` | `/alerts/active` | Active alerts list |
+| `GET` | `/alerts/history` | Alert history |
+| `POST` | `/alerts/{id}/acknowledge` | Acknowledge alert |
+| `POST` | `/alerts/{id}/resolve` | Resolve alert |
+| `GET` | `/alerts/channels` | List notification channels |
+| `POST` | `/alerts/channels` | Create notification channel |
+| `DELETE` | `/alerts/channels/{id}` | Delete notification channel |
+| `POST` | `/alerts/channels/{id}/test` | Test notification channel |
+| `GET` | `/servers` | List registered servers |
+| `GET` | `/servers/summary` | Infrastructure overview (online/offline counts) |
+| `POST` | `/servers/register` | Register new server (returns agent token) |
+| `POST` | `/servers/metrics?token=` | Push agent metrics |
+| `GET` | `/servers/{id}` | Server details with latest metrics |
+| `GET` | `/uptime/monitors` | List uptime monitors |
+| `POST` | `/uptime/monitors` | Create uptime monitor |
+| `PUT` | `/uptime/monitors/{id}` | Update uptime monitor |
+| `DELETE` | `/uptime/monitors/{id}` | Delete uptime monitor |
+| `POST` | `/uptime/monitors/{id}/check` | Run instant uptime check |
+| `GET` | `/uptime/monitors/{id}/history` | Uptime check history |
+| `GET` | `/uptime/monitors/{id}/incidents` | Uptime incident list |
+| `POST` | `/ssl/scan` | Scan SSL certificate |
+| `GET` | `/ssl/certificates` | List SSL certificates |
+| `GET` | `/ssl/certificates/{id}` | SSL certificate details |
+| `GET` | `/processes` | List monitored processes |
+| `POST` | `/processes` | Add process to monitor |
+| `DELETE` | `/processes/{id}` | Remove monitored process |
+| `POST` | `/processes/{id}/check` | Check process status |
+| `POST` | `/processes/check-all` | Check all processes |
+| `GET` | `/processes/{id}/events` | Process event history |
 
 ### Example
 
@@ -306,6 +417,30 @@ performance-stats/
 │       │   ├── models.py       # SQLite ip_reputation table
 │       │   ├── router.py       # /ip/* FastAPI endpoints
 │       │   └── integration.py  # Real-time enrichment + alerting
+│       ├── alert_manager/      # Tier-1: Alert rules, channels, lifecycle
+│       │   ├── service.py      # Rule evaluation, dedup, notifications
+│       │   └── router.py       # /alerts/* endpoints
+│       ├── multi_server/       # Tier-1: Multi-server infrastructure
+│       │   ├── service.py      # Registration, metrics, status
+│       │   └── router.py       # /servers/* endpoints
+│       ├── uptime_monitor/     # Tier-1: HTTP/HTTPS/TCP uptime checks
+│       │   ├── service.py      # Check logic, incidents, history
+│       │   └── router.py       # /uptime/* endpoints
+│       ├── ssl_monitor/        # Tier-1: SSL certificate scanning
+│       │   ├── service.py      # Async fetch, parsing, expiry
+│       │   └── router.py       # /ssl/* endpoints
+│       ├── process_monitor/    # Tier-1: Process monitoring + auto-restart
+│       │   ├── service.py      # psutil checks, systemctl restart
+│       │   └── router.py       # /processes/* endpoints
+│       ├── metrics/            # Advanced metrics + real-time dashboard
+│       │   ├── smoothing.py    # EMA + rolling average engine
+│       │   ├── network_deep.py # Connection states, top IPs, ports
+│       │   ├── disk_iops.py    # Read/write IOPS, throughput
+│       │   └── router.py       # /metrics/* + /ws/metrics
+│       ├── agent/              # Lightweight monitoring agent
+│       │   ├── monitor_agent.py# Python daemon with HMAC signing
+│       │   └── install.sh      # One-line Linux installer
+│       ├── models.py           # All Tier-1 database schemas
 │       └── routers/
 │           ├── stats.py        # System stats endpoints
 │           ├── auth.py         # Authentication endpoints
@@ -315,8 +450,19 @@ performance-stats/
 │   ├── Dockerfile              # Multi-stage build (Node → Nginx)
 │   ├── nginx.conf              # Nginx config with API proxy
 │   └── src/
-│       ├── App.js              # Dashboard component
-│       ├── api.js              # API client
+│       ├── App.js              # Main app with 8-tab navigation
+│       ├── api.js              # API client (all endpoints)
+│       ├── components/         # React components
+│       │   ├── GrafanaDashboard.js  # Real-time metrics dashboard
+│       │   ├── AlertCenter.js       # Alert management page
+│       │   ├── ServersPage.js       # Server infrastructure page
+│       │   ├── UptimePage.js        # Uptime monitor page
+│       │   ├── SSLPage.js           # SSL certificate page
+│       │   ├── ProcessPage.js       # Process monitor page
+│       │   ├── TrafficPanel.js      # Traffic monitoring panel
+│       │   ├── ThreatPanel.js       # Threat intelligence panel
+│       │   ├── Login.js             # Authentication page
+│       │   └── AdminPanel.js        # User management
 │       └── styles/             # CSS styles
 ├── server-stats.sh             # Original Bash script (v2.0.0)
 ├── server-stats.conf           # Bash script configuration
