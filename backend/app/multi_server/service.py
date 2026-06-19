@@ -109,6 +109,7 @@ class MultiServerService:
                 "network_connections": latest.network_connections if latest else None,
             } if latest else None}
 
+<<<<<<< HEAD
     async def delete_server(self, server_id: int) -> bool:
         async with async_session() as session:
             result = await session.execute(select(Server).where(Server.id == server_id))
@@ -123,6 +124,8 @@ class MultiServerService:
             await session.commit()
             return True
 
+=======
+>>>>>>> aea3279 (update :: v3 Tier-1)
     async def get_summary(self) -> dict:
         async with async_session() as session:
             result = await session.execute(select(Server))
