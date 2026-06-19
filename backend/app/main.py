@@ -13,6 +13,7 @@ from app.routers.traffic import router as traffic_router
 from app.ip_reputation.router import router as ip_reputation_router
 from app.ip_reputation.integration import ip_integrator
 from app.metrics.router import router as metrics_router, start_background_collection, stop_background_collection
+from app.agent.monitor_agent import MonitorAgent
 from app.alert_manager.router import router as alert_router
 from app.multi_server.router import router as servers_router
 from app.uptime_monitor.router import router as uptime_router
@@ -34,8 +35,11 @@ async def periodic_collection():
     while True:
         try:
             metrics, _ = await collect_all_metrics()
+            # Filter to only Snapshot-compatible fields
+            snapshot_fields = {k: v for k, v in metrics.items()
+                             if k in [c.name for c in Snapshot.__table__.columns]}
             async with async_session() as session:
-                snapshot = Snapshot(**metrics)
+                snapshot = Snapshot(**snapshot_fields)
                 session.add(snapshot)
                 await session.commit()
             logger.info(f"Background collection complete: CPU={metrics.get('cpu_usage_percent')}%, "
@@ -117,6 +121,35 @@ app.include_router(uptime_router)
 app.include_router(ssl_router)
 app.include_router(process_router)
 
+
+# Public WebSocket routes (no auth required)
+from fastapi import WebSocket
+@app.websocket("/ws/metrics")
+async def ws_metrics_public(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        from app.metrics.router import websocket_metrics
+        await websocket_metrics(websocket)
+    except Exception:
+        pass
+
+@app.websocket("/ws/traffic")
+async def ws_traffic_public(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        from app.routers.traffic import websocket_traffic
+        await websocket_traffic(websocket)
+    except Exception:
+        pass
+
+# Agent download endpoint
+from fastapi.responses import PlainTextResponse
+@app.get("/api/agent/download", response_class=PlainTextResponse)
+async def download_agent():
+    import os
+    agent_path = os.path.join(os.path.dirname(__file__), "agent", "monitor_agent.py")
+    with open(agent_path, "r") as f:
+        return f.read()
 
 @app.get("/")
 async def root():

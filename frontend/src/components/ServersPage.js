@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getServers, getServerSummary, registerServer } from '../api';
+import { getServers, getServerSummary, registerServer, deleteServer } from '../api';
 
 export default function ServersPage() {
   const [servers, setServers] = useState([]);
@@ -22,6 +22,14 @@ export default function ServersPage() {
       const data = await registerServer(form);
       setNewToken(data.token);
       setShowRegister(false);
+      fetch();
+    } catch (e) { alert(e.message); }
+  };
+
+  const handleDeleteServer = async (id, hostname) => {
+    if (!window.confirm(`Delete server "${hostname}"?`)) return;
+    try {
+      await deleteServer(id);
       fetch();
     } catch (e) { alert(e.message); }
   };
@@ -76,15 +84,16 @@ export default function ServersPage() {
           <div className="panel-body">
             {servers.length === 0 ? <div className="chart-placeholder">No servers registered</div> : (
               <div className="grafana-table">
-                <div className="grafana-table-header" style={{gridTemplateColumns:'1.5fr 1fr 1fr 1fr 80px 100px'}}>
-                  <span>Hostname</span><span>IP</span><span>OS</span><span>Agent</span><span>Status</span><span>Last Seen</span>
+                <div className="grafana-table-header" style={{gridTemplateColumns:'1.5fr 1fr 1fr 1fr 80px 100px 60px'}}>
+                  <span>Hostname</span><span>IP</span><span>OS</span><span>Agent</span><span>Status</span><span>Last Seen</span><span>Action</span>
                 </div>
                 {servers.map(s => (
-                  <div key={s.id} className="grafana-table-row" style={{gridTemplateColumns:'1.5fr 1fr 1fr 1fr 80px 100px'}}>
+                  <div key={s.id} className="grafana-table-row" style={{gridTemplateColumns:'1.5fr 1fr 1fr 1fr 80px 100px 60px'}}>
                     <span className="grafana-ip">{s.hostname}</span><span>{s.public_ip || '—'}</span>
                     <span style={{fontSize:11}}>{s.os || '—'}</span><span style={{fontSize:11}}>{s.agent_version || '—'}</span>
                     <span style={{color:s.status==='ONLINE'?'#22c55e':s.status==='WARNING'?'#f59e0b':'#ef4444',fontWeight:600}}>{s.status}</span>
                     <span style={{fontSize:10}}>{s.last_seen ? new Date(s.last_seen).toLocaleString() : '—'}</span>
+                    <span><button className="mode-btn" style={{color:'#ef4444',fontSize:11,padding:'2px 6px'}} onClick={() => handleDeleteServer(s.id, s.hostname)}>🗑️</button></span>
                   </div>
                 ))}
               </div>

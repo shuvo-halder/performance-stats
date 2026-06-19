@@ -109,6 +109,20 @@ class MultiServerService:
                 "network_connections": latest.network_connections if latest else None,
             } if latest else None}
 
+    async def delete_server(self, server_id: int) -> bool:
+        async with async_session() as session:
+            result = await session.execute(select(Server).where(Server.id == server_id))
+            server = result.scalar_one_or_none()
+            if not server:
+                return False
+            # Delete related records
+            from sqlalchemy import delete as sa_delete
+            await session.execute(sa_delete(ServerMetric).where(ServerMetric.server_id == server_id))
+            await session.execute(sa_delete(ServerStatus).where(ServerStatus.server_id == server_id))
+            await session.delete(server)
+            await session.commit()
+            return True
+
     async def get_summary(self) -> dict:
         async with async_session() as session:
             result = await session.execute(select(Server))

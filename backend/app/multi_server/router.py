@@ -1,7 +1,7 @@
 """Multi-Server FastAPI Router."""
 
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from app.multi_server.service import multi_server
 
 logger = logging.getLogger("server-stats.multi_server.router")
@@ -25,8 +25,10 @@ async def register_server(data: dict):
 
 
 @router.post("/metrics")
-async def update_metrics(token: str, data: dict):
-    if not await multi_server.update_metrics(token, data):
+async def update_metrics(request: Request, data: dict):
+    # Agent sends token in X-Agent-Token header, fallback to query param
+    token = request.headers.get("X-Agent-Token") or request.query_params.get("token", "")
+    if not token or not await multi_server.update_metrics(token, data):
         raise HTTPException(401, "Invalid agent token")
     return {"status": "ok"}
 
@@ -37,3 +39,10 @@ async def get_server(server_id: int):
     if not result:
         raise HTTPException(404, "Server not found")
     return result
+
+
+@router.delete("/{server_id}")
+async def delete_server(server_id: int):
+    if not await multi_server.delete_server(server_id):
+        raise HTTPException(404, "Server not found")
+    return {"status": "deleted"}

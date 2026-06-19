@@ -432,7 +432,11 @@ class IPReputationService:
             if db_record:
                 # Check if TTL has expired
                 if db_record.last_checked:
-                    age = (datetime.now(timezone.utc) - db_record.last_checked).total_seconds()
+                    # SQLite stores naive datetimes, make them aware for comparison
+                    lc = db_record.last_checked
+                    if lc and lc.tzinfo is None:
+                        lc = lc.replace(tzinfo=timezone.utc)
+                    age = (datetime.now(timezone.utc) - lc).total_seconds()
                     if age < settings.ip_reputation_cache_ttl:
                         cached_dict = db_record.to_dict()
                         await self.cache.set(ip, cached_dict)
