@@ -71,11 +71,18 @@ Track CPU, memory, disk, network, services, and security metrics in real-time wi
 - ✅ Global infrastructure overview (online/offline/warning/critical)
 
 ### ⏱️ Uptime Monitor (v3.0 — Tier-1)
-- ✅ Monitor HTTP, HTTPS, TCP endpoints
-- ✅ Configurable check intervals, timeouts, retries
-- ✅ 24/7 availability percentage tracking
-- ✅ Incident management with downtime duration
-- ✅ Response time monitoring per check
+- ✅ Monitor HTTP, HTTPS, TCP, and ICMP (Ping) endpoints
+- ✅ Configurable check intervals, timeouts, and retry counts
+- ✅ 24/7 availability percentage tracking (rolling 24h window)
+- ✅ Incident management with downtime duration and resolution tracking
+- ✅ Response time monitoring per check (ms)
+- ✅ Expected status code and content matching validation
+- ✅ Retry logic — configurable retries before marking as DOWN
+- ✅ Enable/disable individual monitors without deleting
+- ✅ Manual "Check Now" and bulk "Check All" from the UI
+- ✅ Background auto-scheduler — checks all enabled monitors every 60s
+- ✅ Check history with timestamps, status, and response times
+- ✅ Active and resolved incident timeline with duration breakdown
 
 ### 🔒 SSL Certificate Monitor (v3.0 — Tier-1)
 - ✅ Scan SSL/TLS certificates for any hostname
@@ -296,6 +303,7 @@ All endpoints require an API key. Pass it via:
 | `PUT` | `/uptime/monitors/{id}` | Update uptime monitor |
 | `DELETE` | `/uptime/monitors/{id}` | Delete uptime monitor |
 | `POST` | `/uptime/monitors/{id}/check` | Run instant uptime check |
+| `POST` | `/uptime/monitors/check-all` | Check all enabled monitors immediately |
 | `GET` | `/uptime/monitors/{id}/history` | Uptime check history |
 | `GET` | `/uptime/monitors/{id}/incidents` | Uptime incident list |
 | `POST` | `/ssl/scan` | Scan SSL certificate |
@@ -423,8 +431,8 @@ performance-stats/
 │       ├── multi_server/       # Tier-1: Multi-server infrastructure
 │       │   ├── service.py      # Registration, metrics, status
 │       │   └── router.py       # /servers/* endpoints
-│       ├── uptime_monitor/     # Tier-1: HTTP/HTTPS/TCP uptime checks
-│       │   ├── service.py      # Check logic, incidents, history
+│       ├── uptime_monitor/     # Tier-1: HTTP/HTTPS/TCP/ICMP uptime checks
+│       │   ├── service.py      # Check logic, retries, incidents, history, background scheduler
 │       │   └── router.py       # /uptime/* endpoints
 │       ├── ssl_monitor/        # Tier-1: SSL certificate scanning
 │       │   ├── service.py      # Async fetch, parsing, expiry

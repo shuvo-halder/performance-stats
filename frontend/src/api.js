@@ -80,6 +80,7 @@ export function createUptimeMonitor(data) { return request('/uptime/monitors', {
 export function updateUptimeMonitor(id, data) { return request(`/uptime/monitors/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
 export function deleteUptimeMonitor(id) { return request(`/uptime/monitors/${id}`, { method: 'DELETE' }); }
 export function checkUptimeNow(id) { return request(`/uptime/monitors/${id}/check`, { method: 'POST' }); }
+export function checkAllUptime() { return request('/uptime/monitors/check-all', { method: 'POST' }); }
 export function getUptimeHistory(id, hours = 24) { return request(`/uptime/monitors/${id}/history?hours=${hours}`); }
 export function getUptimeIncidents(id) { return request(`/uptime/monitors/${id}/incidents`); }
 

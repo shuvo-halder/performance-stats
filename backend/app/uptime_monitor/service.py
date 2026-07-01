@@ -1,6 +1,6 @@
 """Uptime Monitor Service — HTTP/HTTPS/TCP/ICMP checks."""
 
-import asyncio, logging, time
+import asyncio, logging, time, sys
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, desc
 from app.database import async_session
@@ -50,18 +50,16 @@ class UptimeService:
             await session.commit()
             return True
 
-    async def check_now(self, mid: int) -> dict:
-        m = await self.get_monitor(mid)
-        if not m:
-            return {"error": "not found"}
+    async def _perform_check(self, m) -> tuple:
+        """Perform a single check against a monitor target. Returns (status, response_time_ms, status_code)."""
         start = time.time()
         status = "DOWN"
         status_code = None
         try:
             if m.monitor_type in ("http", "https"):
                 import httpx
-                async with httpx.AsyncClient(timeout=m.timeout) as client:
-                    resp = await client.get(m.target)
+                async with httpx.AsyncClient(timeout=m.timeout, verify=False) as client:
+                    resp = await client.get(m.target, follow_redirects=True)
                     status_code = resp.status_code
                     rt = (time.time() - start) * 1000
                     status = "UP" if resp.status_code == m.expected_status_code else "DOWN"
@@ -69,18 +67,51 @@ class UptimeService:
                         status = "DOWN"
             elif m.monitor_type == "tcp":
                 host, port = m.target.split(":")
-                reader, writer = await asyncio.wait_for(
+                _, writer = await asyncio.wait_for(
                     asyncio.open_connection(host, int(port)), timeout=m.timeout)
                 writer.close()
                 await writer.wait_closed()
                 rt = (time.time() - start) * 1000
                 status = "UP"
+            elif m.monitor_type == "icmp":
+                import subprocess
+                result = subprocess.run(
+                    ["ping", "-n" if sys.platform == "win32" else "-c", "1", m.target],
+                    capture_output=True, timeout=m.timeout)
+                rt = (time.time() - start) * 1000
+                status = "UP" if result.returncode == 0 else "DOWN"
             else:
-                return {"error": "unsupported type"}
+                return ("UNKNOWN", 0, None)
         except Exception:
             rt = (time.time() - start) * 1000
             status = "DOWN"
+        return (status, rt, status_code)
 
+    async def check_now(self, mid: int) -> dict:
+        m = await self.get_monitor(mid)
+        if not m:
+            return {"error": "not found"}
+
+        # Implement retry logic
+        retries = max(1, m.retry_count or 1)
+        final_status = "DOWN"
+        final_rt = 0
+        final_status_code = None
+
+        for attempt in range(retries):
+            status, rt, status_code = await self._perform_check(m)
+            final_rt = rt
+            final_status_code = status_code
+            if status == "UP":
+                final_status = "UP"
+                break
+            if attempt < retries - 1:
+                await asyncio.sleep(1)  # 1 second between retries
+
+        await self._save_result(mid, final_status, final_rt, final_status_code)
+        return {"status": final_status, "response_time_ms": round(final_rt, 2)}
+
+    async def _save_result(self, mid: int, status: str, rt: float, status_code: int = None):
         async with async_session() as session:
             r = await session.execute(select(UptimeMonitor).where(UptimeMonitor.id == mid))
             mo = r.scalar_one()
@@ -119,8 +150,6 @@ class UptimeService:
             mo.uptime_percent = round((up / len(results)) * 100, 2) if results else 100.0
             await session.commit()
 
-        return {"status": status, "response_time_ms": round(rt, 2), "uptime_percent": mo.uptime_percent}
-
     async def get_history(self, mid: int, hours: int = 24) -> list:
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
         async with async_session() as session:
@@ -140,6 +169,17 @@ class UptimeService:
                      "ended_at": x.ended_at.isoformat() if x.ended_at else None,
                      "duration": x.duration_seconds, "is_active": x.is_active}
                     for x in r.scalars().all()]
+
+    async def check_all_enabled(self):
+        """Check all enabled monitors. Called by background scheduler."""
+        monitors = await self.get_monitors()
+        results = []
+        for m_data in monitors:
+            if not m_data.get("enabled", True):
+                continue
+            result = await self.check_now(m_data["id"])
+            results.append({"id": m_data["id"], "name": m_data["name"], **result})
+        return results
 
 
 def _m_to_dict(m):

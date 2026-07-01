@@ -45,6 +45,13 @@ async def check_now(mid: int):
     return await uptime.check_now(mid)
 
 
+@router.post("/monitors/check-all")
+async def check_all():
+    """Check all enabled monitors immediately."""
+    results = await uptime.check_all_enabled()
+    return {"results": results, "total": len(results)}
+
+
 @router.get("/monitors/{mid}/history")
 async def get_history(mid: int, hours: int = 24):
     return {"results": await uptime.get_history(mid, hours)}
@@ -59,7 +66,8 @@ def _m_to_dict(m):
     return {
         "id": m.id, "name": m.name, "monitor_type": m.monitor_type, "target": m.target,
         "check_interval": m.check_interval, "timeout": m.timeout, "retry_count": m.retry_count,
-        "expected_status_code": m.expected_status_code, "enabled": m.enabled,
+        "expected_status_code": m.expected_status_code, "expected_content": m.expected_content,
+        "enabled": m.enabled,
         "last_checked_at": m.last_checked_at.isoformat() if m.last_checked_at else None,
         "last_status": m.last_status, "uptime_percent": m.uptime_percent, "response_time_ms": m.response_time_ms,
     }

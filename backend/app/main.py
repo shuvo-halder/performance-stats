@@ -16,6 +16,7 @@ from app.metrics.router import router as metrics_router, start_background_collec
 from app.alert_manager.router import router as alert_router
 from app.multi_server.router import router as servers_router
 from app.uptime_monitor.router import router as uptime_router
+from app.uptime_monitor.service import uptime as uptime_service
 from app.ssl_monitor.router import router as ssl_router
 from app.process_monitor.router import router as process_router
 from app.auth import get_current_user
@@ -27,6 +28,7 @@ logger = logging.getLogger("server-stats")
 # Background task references
 background_task = None
 traffic_task = None
+uptime_scheduler_task = None
 
 
 async def periodic_collection():
@@ -72,6 +74,18 @@ async def lifespan(app: FastAPI):
     await start_background_collection()
     logger.info("Background metrics collection started")
 
+    # Start uptime monitor background scheduler
+    global uptime_scheduler_task
+    async def uptime_scheduler():
+        while True:
+            try:
+                await uptime_service.check_all_enabled()
+            except Exception as e:
+                logger.error(f"Uptime scheduler error: {e}")
+            await asyncio.sleep(60)  # Check all monitors every 60 seconds
+    uptime_scheduler_task = asyncio.create_task(uptime_scheduler())
+    logger.info("Uptime background scheduler started")
+
     yield
 
     # Shutdown
@@ -87,6 +101,12 @@ async def lifespan(app: FastAPI):
         traffic_task.cancel()
         try:
             await traffic_task
+        except asyncio.CancelledError:
+            pass
+    if uptime_scheduler_task:
+        uptime_scheduler_task.cancel()
+        try:
+            await uptime_scheduler_task
         except asyncio.CancelledError:
             pass
     logger.info("Server shutting down")
